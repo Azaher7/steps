@@ -4,3 +4,9 @@ dist/
 coverage/
 *.log
 .DS_Store
+<<<<<<< ours
+=======
+.env
+.env.*
+!.env.example
+>>>>>>> theirs
