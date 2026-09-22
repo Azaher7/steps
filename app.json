@@ -1,0 +1,33 @@
+{
+  "expo": {
+    "name": "Stride",
+    "slug": "stride-walk-tracker",
+    "scheme": "stride",
+    "version": "1.1.0",
+    "runtimeVersion": { "policy": "appVersion" },
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.stridehealth.walktracker",
+      "buildNumber": "2",
+      "infoPlist": {
+        "NSMotionUsageDescription": "Stride reads motion activity to show your daily step count.",
+        "NSLocationWhenInUseUsageDescription": "Stride uses your location to map and measure walks that you choose to record.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Stride can continue recording an active walk when the screen is locked or another app is open.",
+        "UIBackgroundModes": ["location"]
+      }
+    },
+    "android": {
+      "package": "com.stridehealth.walktracker",
+      "versionCode": 2,
+      "permissions": ["ACTIVITY_RECOGNITION", "ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION", "ACCESS_BACKGROUND_LOCATION", "FOREGROUND_SERVICE", "FOREGROUND_SERVICE_LOCATION"]
+    },
+    "plugins": [
+      ["expo-location", { "locationWhenInUsePermission": "Allow Stride to map and measure walks you record.", "locationAlwaysAndWhenInUsePermission": "Allow Stride to keep recording an active walk when the screen is locked." }],
+      "expo-sensors",
+      "expo-task-manager"
+    ],
+    "extra": { "eas": { "projectId": "REPLACE_WITH_EAS_PROJECT_ID" } }
+  }
+}
