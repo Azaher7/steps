@@ -1,0 +1,1152 @@
+ (cd "$(git rev-parse --show-toplevel)" && printf '%s' 'diff --git a/.env.example b/.env.example
+new file mode 100644
+index 0000000000000000000000000000000000000000..14760cd961da9bd27e41e4f297bb34e591b4720e
+--- /dev/null
++++ b/.env.example
+@@ -0,0 +1,3 @@
++EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
++EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-or-publishable-key
++EXPO_PUBLIC_GOOGLE_MAPS_API_KEY=android-key-restricted-to-package-and-signing-certificate
+diff --git a/.eslintrc.js b/.eslintrc.js
+new file mode 100644
+index 0000000000000000000000000000000000000000..e087a84c3b236f546dd85cac20b9074f5e18e09f
+--- /dev/null
++++ b/.eslintrc.js
+@@ -0,0 +1 @@
++module.exports={extends:['\''expo'\''],ignorePatterns:['\''node_modules/'\'','\''coverage/'\'']};
+diff --git a/.gitignore b/.gitignore
+new file mode 100644
+index 0000000000000000000000000000000000000000..d9e9f7ccada05ae9e0793cde19c58d99dbfbb90c
+--- /dev/null
++++ b/.gitignore
+@@ -0,0 +1,9 @@
++node_modules/
++.expo/
++dist/
++coverage/
++*.log
++.DS_Store
++.env
++.env.*
++!.env.example
+diff --git a/App.tsx b/App.tsx
+new file mode 100644
+index 0000000000000000000000000000000000000000..1b60b16d14ea2a16bdec2dd2ad29c4537b9cec38
+--- /dev/null
++++ b/App.tsx
+@@ -0,0 +1,34 @@
++import React, { useEffect, useState } from '\''react'\'';
++import { Pressable, StatusBar, StyleSheet, Text, useColorScheme, View } from '\''react-native'\'';
++import { SafeAreaProvider, SafeAreaView } from '\''react-native-safe-area-context'\'';
++import { LinearGradient } from '\''expo-linear-gradient'\'';
++import { Ionicons } from '\''@expo/vector-icons'\'';
++import { AppProvider, useApp } from '\''./src/context/AppContext'\'';
++import { AuthProvider } from '\''./src/context/AuthContext'\'';
++import { colors, resolveTheme } from '\''./src/theme'\'';
++import { Loading } from '\''./src/components/UI'\'';
++import { HomeScreen } from '\''./src/screens/HomeScreen'\'';
++import { HistoryScreen } from '\''./src/screens/HistoryScreen'\'';
++import { SettingsScreen } from '\''./src/screens/SettingsScreen'\'';
++import { OnboardingScreen } from '\''./src/screens/OnboardingScreen'\'';
++import { WalkScreen } from '\''./src/screens/WalkScreen'\'';
++import { AccountScreen } from '\''./src/screens/AccountScreen'\'';
++import { PrivacyScreen } from '\''./src/screens/PrivacyScreen'\'';
++import { loadActiveWalk } from '\''./src/data/storage'\'';
++import { useCloudSync } from '\''./src/hooks/useCloudSync'\'';
++
++type Tab = '\''home'\'' | '\''history'\'' | '\''settings'\''; type Overlay = '\''walk'\'' | '\''account'\'' | '\''privacy'\'' | null;
++function SyncAgent({ c }: { c: typeof colors.dark }) { const { status } = useCloudSync(); if (status === '\''idle'\'' || status === '\''synced'\'') return null; return <View pointerEvents="none" style={[s.sync, { backgroundColor: c.elevated }]}><Ionicons name={status === '\''offline'\'' ? '\''cloud-offline-outline'\'' : status === '\''error'\'' ? '\''warning-outline'\'' : '\''cloud-upload-outline'\''} size={13} color={status === '\''error'\'' ? c.danger : c.primary}/><Text style={{ color: c.muted, fontSize: 11, fontWeight: '\''700'\'' }}>{status === '\''offline'\'' ? '\''Offline · saved locally'\'' : status === '\''error'\'' ? '\''Sync paused · data is safe locally'\'' : '\''Syncing securely…'\''}</Text></View>; }
++function Shell() {
++  const { state, ready, completeOnboarding, addWalk } = useApp(); const system = useColorScheme(); const mode = resolveTheme(state.settings.theme, system); const c = colors[mode];
++  const [tab, setTab] = useState<Tab>('\''home'\''); const [overlay, setOverlay] = useState<Overlay>(null);
++  useEffect(() => { loadActiveWalk().then(active => { if (active) setOverlay('\''walk'\''); }); }, []);
++  if (!ready) return <Loading c={c}/>;
++  if (!state.onboarded) return <OnboardingScreen c={c} onDone={completeOnboarding}/>;
++  if (overlay === '\''walk'\'') return <WalkScreen c={c} units={state.settings.units} haptics={state.settings.haptics} keepAwake={state.settings.keepScreenAwake} backgroundTracking={state.settings.backgroundTracking} onClose={() => setOverlay(null)} onSave={walk => { addWalk(walk); setOverlay(null); setTab('\''history'\''); }}/>
++  if (overlay === '\''account'\'') return <AccountScreen c={c} onClose={() => setOverlay(null)}/>;
++  if (overlay === '\''privacy'\'') return <PrivacyScreen c={c} onClose={() => setOverlay(null)}/>;
++  return <SafeAreaView style={[s.safe, { backgroundColor: c.bg }]} edges={['\''top'\'']}><StatusBar barStyle={mode === '\''dark'\'' ? '\''light-content'\'' : '\''dark-content'\''}/><SyncAgent c={c}/><View style={s.page}>{tab === '\''home'\'' ? <HomeScreen c={c} onStart={() => setOverlay('\''walk'\'')}/> : tab === '\''history'\'' ? <HistoryScreen c={c}/> : <SettingsScreen c={c} onAccount={() => setOverlay('\''account'\'')} onPrivacy={() => setOverlay('\''privacy'\'')}/>}</View><LinearGradient colors={[c.surface, c.surface2]} style={[s.tabs, { borderColor: c.line }]}>{([{ id: '\''home'\'', label: '\''Today'\'', icon: '\''home'\'' }, { id: '\''history'\'', label: '\''Activity'\'', icon: '\''stats-chart'\'' }, { id: '\''settings'\'', label: '\''Settings'\'', icon: '\''options'\'' }] as const).map(item => <Pressable accessibilityRole="tab" accessibilityState={{ selected: tab === item.id }} onPress={() => setTab(item.id)} style={s.tab} key={item.id}>{tab === item.id ? <LinearGradient colors={[c.primary, c.primary2]} style={s.selected}><Ionicons name={item.icon} size={20} color={c.primaryText}/></LinearGradient> : <Ionicons name={`${item.icon}-outline` as keyof typeof Ionicons.glyphMap} size={22} color={c.muted}/>}<Text style={[s.tabText, { color: tab === item.id ? c.primary : c.muted }]}>{item.label}</Text></Pressable>)}</LinearGradient></SafeAreaView>;
++}
++export default function App() { return <SafeAreaProvider><AuthProvider><AppProvider><Shell/></AppProvider></AuthProvider></SafeAreaProvider>; }
++const s = StyleSheet.create({ safe: { flex: 1 }, page: { flex: 1 }, tabs: { position: '\''absolute'\'', bottom: 0, left: 0, right: 0, height: 92, borderTopWidth: 1, flexDirection: '\''row'\'', paddingBottom: 18 }, tab: { flex: 1, alignItems: '\''center'\'', justifyContent: '\''center'\'', gap: 3 }, selected: { width: 43, height: 31, borderRadius: 16, alignItems: '\''center'\'', justifyContent: '\''center'\'' }, tabText: { fontSize: 10, fontWeight: '\''800'\'' }, sync: { position: '\''absolute'\'', zIndex: 5, top: 10, alignSelf: '\''center'\'', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 7, flexDirection: '\''row'\'', alignItems: '\''center'\'', gap: 6 } });
+diff --git a/README.md b/README.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..47f62485102e55f2eec03d79bf5350e8a2c65a0d
+--- /dev/null
++++ b/README.md
+@@ -0,0 +1,146 @@
++# Stride
++
++Stride is a privacy-conscious, local-first Expo step and GPS walk tracker. Tracking works without an account or network. An optional Supabase account adds backup and cross-device restoration after a walk is completed.
++
++## What is real (and what is not)
++
++There is **no demo movement or sample health data in production code**.
++
++- **Steps:** `expo-sensors` Pedometer checks native availability, requests Motion/Activity Recognition permission, reads the real count from local midnight, then adds live native sensor updates. Unsupported devices show an explicit unavailable state rather than invented steps.
++- **Walks:** `expo-location` obtains a real high-accuracy starting fix and streams device coordinates. Points with accuracy worse than 50 m, non-monotonic timestamps, or apparent speed over 8 m/s are rejected. Route distance is the sum of accepted Haversine segments.
++- **Background:** `expo-task-manager` and `Location.startLocationUpdatesAsync` append accepted coordinates to the persisted active session. An Android foreground-service notification remains visible. Background access is optional and requested only when the user enables the preference and begins a walk.
++- **Recovery:** the active session, route, accumulated active time, status, and last GPS signal time are written to AsyncStorage. On relaunch, Stride reopens it instead of silently losing it.
++
++The original MVP already used real `watchPositionAsync` coordinates and a real pedometer—it was not mocked—but it was only a fragile foreground implementation: it did not acquire/validate an initial fix, survive process restart, register a background task, filter GPS jumps comprehensively, or restore an active session.
++
++## Requirements
++
++- Node.js 20+
++- Xcode 16+ for iOS or Android Studio for Android
++- Expo/EAS account for development builds
++- A physical phone for sensor validation
++- Optional Supabase project for accounts/sync
++
++```bash
++npm install
++cp .env.example .env
++npm run typecheck
++npm test
++npm run lint
++```
++
++## Development builds (recommended)
++
++Expo Go is useful for basic UI work, but it is **not the supported validation environment** for Stride background location, Android foreground services, native permission configuration, or reliable pedometer testing. Use a development client on a real phone.
++
++First replace `REPLACE_WITH_EAS_PROJECT_ID` in `app.json` by running:
++
++```bash
++npm install --global eas-cli
++eas login
++eas init
++eas build:configure
++```
++
++Then build installable development clients:
++
++```bash
++eas build --platform ios --profile development
++eas build --platform android --profile development
++```
++
++The Android development profile emits an APK for direct installation. The iOS profile requires a paid Apple Developer account and device registration for internal distribution. After installing, run `npm start` and open the development client.
++
++Local native builds are also available:
++
++```bash
++npm run ios
++npm run android
++```
++
++## Permissions
++
++| Capability | When | Purpose |
++| --- | --- | --- |
++| Motion & Fitness / Activity Recognition | Dashboard after onboarding | Real daily step count |
++| Foreground precise location | User taps Begin Walk | Initial fix, live route, distance, pace |
++| Background location (optional) | Begin Walk, only if enabled in Settings | Continue the active walk while locked/backgrounded |
++| Android foreground service | During background-enabled active walk | Required persistent recording notification |
++
++Pausing, finishing, or discarding stops location updates. GPS-disabled, weak-signal, denied, and stale-signal states are visible; Stride never fakes progress. iOS may pause/terminate apps under system pressure despite configuration. Android OEM battery optimization can interrupt services. Real-device testing across target OS/OEM versions remains mandatory.
++
++## Supabase setup
++
++1. Create a Supabase project.
++2. Run `supabase link --project-ref <ref>` and `supabase db push`, or paste `supabase/migrations/202609220001_initial_schema.sql` into the SQL editor.
++3. Set Authentication > URL Configuration redirect URL to `stride://reset-password`.
++4. Enable Email authentication. Decide whether email confirmation is required; configure production SMTP before beta scale.
++5. Copy `.env.example` to `.env` and provide only client-safe values:
++
++```dotenv
++EXPO_PUBLIC_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
++EXPO_PUBLIC_SUPABASE_ANON_KEY=YOUR_PUBLISHABLE_OR_ANON_KEY
++EXPO_PUBLIC_GOOGLE_MAPS_API_KEY=YOUR_ANDROID_RESTRICTED_GOOGLE_MAPS_KEY
++```
++
++Never place a service-role key in the app or an `EXPO_PUBLIC_` variable. `.env*` is ignored except `.env.example`.
++
++For Android maps, enable **Maps SDK for Android** in Google Cloud and restrict the key to `com.stridehealth.walktracker` plus the SHA-1 certificates for the EAS development and production credentials. `app.config.ts` injects it only into native Android configuration. iOS uses Apple Maps by default.
++
++### Cloud architecture
++
++Local tracking and persistence do not import or depend on Supabase. Once authenticated and online, a debounced sync layer first restores remote records and merges them by stable ID / `updated_at`, preserving the newer item. It then upserts unsynced completed walks and daily summaries plus preferences. Active points are never streamed to the backend; a completed route is uploaded once as a JSONB array.
++
++The migration creates:
++
++- `profiles` — one row per auth user
++- `walk_sessions` — summary plus compact JSONB route, indexed by user/start time
++- `daily_activity` — one summary per user/calendar date
++- `user_preferences` — goal, units, and theme
++
++All tables enable RLS. Every policy requires `auth.uid()` ownership. Foreign keys cascade on account deletion. The authenticated-only `delete_own_account()` RPC deletes the caller'\''s auth record, which cascades all cloud data. No service-role credential is exposed.
++
++## Architecture
++
++```text
++App.tsx                         providers, tabs, overlays, active-walk restore
++src/components/                themed reusable UI and charts
++src/context/                   app/local state and optional auth session
++src/data/storage.ts            versioned app and active-session persistence
++src/hooks/                     native pedometer and offline-aware cloud sync
++src/screens/                   dashboard, history, walk, settings, auth/privacy
++src/services/walkTracking.ts   GPS quality gate and background task
++src/services/supabase.ts       client-safe optional cloud client
++src/services/sync.ts           pull/merge/upsert sync boundary
++src/utils/calculations.ts      pure route, pace, streak, aggregation logic
++supabase/migrations/           reproducible schema, indexes, RLS, deletion RPC
++docs/PRIVACY_POLICY_TEMPLATE.md adaptable pre-release disclosure draft
++```
++
++## Release checklist
++
++### Before TestFlight
++
++- Replace placeholder EAS project ID and verify final Apple bundle ID ownership.
++- Supply Apple credentials, register test devices, create App Store Connect record, final icons/screenshots/support and privacy-policy URLs.
++- Complete App Privacy responses (precise location, fitness/activity, identifiers if accounts are enabled) based on the final build.
++- Configure Supabase production SMTP and redirect links; adapt and legally review the privacy template.
++- Test permission changes, lock/background, force quit, phone calls, long sessions, midnight/DST, weak GPS, offline sync, deletion, and battery impact on supported physical iPhones.
++- Build `eas build --platform ios --profile production`, upload to TestFlight, complete export compliance, and invite testers. No submission is performed by this repository.
++
++### Before Google Play internal testing
++
++- Confirm ownership of `com.stridehealth.walktracker`, create the Play Console app, and provide signing/service credentials to EAS.
++- Complete Data Safety and background-location declarations. Google may require a video and prominent disclosure before background-location approval.
++- Run the same device matrix, emphasizing Android 11+ background permission routing, Android 13+ foreground-service behavior, OEM battery restrictions, and sensor availability.
++- Build `eas build --platform android --profile production` (AAB), upload it to an internal track, and add testers.
++
++## Known limitations
++
++- Step history/availability differs by hardware and OS. Simulators usually return unavailable or zero; physical development builds are required.
++- Daily distance/calories are broad wellness estimates based on fixed stride/per-step constants, not medical measurements. GPS walk distance uses accepted coordinates.
++- Background tracking cannot guarantee survival after a user force-quits the app; platform policies intentionally restrict that behavior.
++- Routes are JSONB for MVP simplicity. For very long sessions or spatial queries, add encoded polylines/PostGIS or a paged route-point table.
++- Sync is last-updated-wins per record and intentionally lightweight; there is no real-time collaboration.
++- AsyncStorage is not encrypted. Authentication tokens use Supabase'\''s supported React Native persistence, but a future high-risk threat model may require platform secure storage.
++- Physical GPS, pedometer, lock-screen background behavior, and store review have **not** been verified in this container and must be validated by the project owner on real iOS and Android devices.
+diff --git a/app.config.ts b/app.config.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..f8e6f05bd3cb53bc8e3a34d663fbde9d031e99c4
+--- /dev/null
++++ b/app.config.ts
+@@ -0,0 +1,15 @@
++import type { ExpoConfig, ConfigContext } from '\''expo/config'\'';
++import app from '\''./app.json'\'';
++
++export default ({ config }: ConfigContext): ExpoConfig => {
++  const base = app.expo as ExpoConfig;
++  const googleMapsApiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
++  return {
++    ...config,
++    ...base,
++    android: {
++      ...base.android,
++      ...(googleMapsApiKey ? { config: { googleMaps: { apiKey: googleMapsApiKey } } } : {}),
++    },
++  };
++};
+diff --git a/app.json b/app.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..f40002e8fc67eea2d21978cca522c777aaf1a6f3
+--- /dev/null
++++ b/app.json
+@@ -0,0 +1,36 @@
++{
++  "expo": {
++    "name": "Stride",
++    "slug": "stride-walk-tracker",
++    "scheme": "stride",
++    "version": "1.1.0",
++    "runtimeVersion": { "policy": "appVersion" },
++    "orientation": "portrait",
++    "userInterfaceStyle": "automatic",
++    "icon": "./assets/icon.png",
++    "splash": { "image": "./assets/splash.png", "resizeMode": "contain", "backgroundColor": "#09120E" },
++    "ios": {
++      "supportsTablet": false,
++      "bundleIdentifier": "com.stridehealth.walktracker",
++      "buildNumber": "2",
++      "infoPlist": {
++        "NSMotionUsageDescription": "Stride reads motion activity to show your daily step count.",
++        "NSLocationWhenInUseUsageDescription": "Stride uses your location to map and measure walks that you choose to record.",
++        "NSLocationAlwaysAndWhenInUseUsageDescription": "Stride can continue recording an active walk when the screen is locked or another app is open.",
++        "UIBackgroundModes": ["location"]
++      }
++    },
++    "android": {
++      "package": "com.stridehealth.walktracker",
++      "versionCode": 2,
++      "permissions": ["ACTIVITY_RECOGNITION", "ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION", "ACCESS_BACKGROUND_LOCATION", "FOREGROUND_SERVICE", "FOREGROUND_SERVICE_LOCATION"],
++      "adaptiveIcon": { "foregroundImage": "./assets/adaptive-icon.png", "backgroundColor": "#09120E" }
++    },
++    "plugins": [
++      ["expo-location", { "locationWhenInUsePermission": "Allow Stride to map and measure walks you record.", "locationAlwaysAndWhenInUsePermission": "Allow Stride to keep recording an active walk when the screen is locked." }],
++      "expo-sensors",
++      "expo-task-manager"
++    ],
++    "extra": { "eas": { "projectId": "REPLACE_WITH_EAS_PROJECT_ID" } }
++  }
++}
+diff --git a/assets/adaptive-icon.png b/assets/adaptive-icon.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..e36651aae51cf9bde948d49ae9a71b54a58289ca
+GIT binary patch
+literal 1057
+zcmeAS@N?(olHy`uVBq!ia0y~yU<5K5893O0R7}x|GzJFd7oIMTAr-gY-Z12Ia1e35
+zm}$!8y;WX&3rE$&zzIDw%eyY0o?fneYReh+2`ep_I2aTd8W<Ru7^uZydcZ-9iF-D@
+zeXYA)kfDh!{&60Y!-Eg44h#l0iUJHh@hmJ1kHr}o5BzX-VBnD7&%wd)5X5(2xD(Id
+zAq(U;6q?HQ0v&vC{-t`31|a{SxkO0*d2I%XzwM8O7#I^CJhboiVPI)E=pHXU2dFUd
+z@cW<hTNx7mFexxd>;nq4=`%1jeB^FmNcaH~+7A>umj8#T;UQ2+!v2^(!?At_j)srP
+zf0z>f0A(fYfvS%612ue1{s9pJn{llFB2Y+~2`JRj05k)v3g{k?kOI&EphhJHpiLmN
+z;HnycA%0As2`CHJ0944A_y?#AB!JL~Fbt?1Vi*ZRU@K8IQc0)-7;GT-AUR119Flm1
+zI)MI#gaQXR3SeGGXk-EgG8R=}AuOsOLZI+q0!9?jNy-dL34ee|0TfZ_Li-sMSb*^j
+zb~sQKQ-c672>?~;GjKFM<YsUJCIO&En5xE$5Fv*mo;~u63K|^m^ch%K57x3W2rxK+
+mvKkB73;~9Aiu9vezs_%xmbkoF`Ke|GAn<hcb6Mw<&;$T;OWKG4
+
+literal 0
+HcmV?d00001
+
+diff --git a/assets/icon.png b/assets/icon.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..e36651aae51cf9bde948d49ae9a71b54a58289ca
+GIT binary patch
+literal 1057
+zcmeAS@N?(olHy`uVBq!ia0y~yU<5K5893O0R7}x|GzJFd7oIMTAr-gY-Z12Ia1e35
+zm}$!8y;WX&3rE$&zzIDw%eyY0o?fneYReh+2`ep_I2aTd8W<Ru7^uZydcZ-9iF-D@
+zeXYA)kfDh!{&60Y!-Eg44h#l0iUJHh@hmJ1kHr}o5BzX-VBnD7&%wd)5X5(2xD(Id
+zAq(U;6q?HQ0v&vC{-t`31|a{SxkO0*d2I%XzwM8O7#I^CJhboiVPI)E=pHXU2dFUd
+z@cW<hTNx7mFexxd>;nq4=`%1jeB^FmNcaH~+7A>umj8#T;UQ2+!v2^(!?At_j)srP
+zf0z>f0A(fYfvS%612ue1{s9pJn{llFB2Y+~2`JRj05k)v3g{k?kOI&EphhJHpiLmN
+z;HnycA%0As2`CHJ0944A_y?#AB!JL~Fbt?1Vi*ZRU@K8IQc0)-7;GT-AUR119Flm1
+zI)MI#gaQXR3SeGGXk-EgG8R=}AuOsOLZI+q0!9?jNy-dL34ee|0TfZ_Li-sMSb*^j
+zb~sQKQ-c672>?~;GjKFM<YsUJCIO&En5xE$5Fv*mo;~u63K|^m^ch%K57x3W2rxK+
+mvKkB73;~9Aiu9vezs_%xmbkoF`Ke|GAn<hcb6Mw<&;$T;OWKG4
+
+literal 0
+HcmV?d00001
+
+diff --git a/assets/splash.png b/assets/splash.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..21f5d96c765e13471323a29251960189acde109e
+GIT binary patch
+literal 2648
+zcmc&#L2Ddk7=C9m%?{~?odw0Etn74i5Kr0aC8x~nGVL1Bs<j6}q)R;u6+HCP>=<iY
+zb(;Kw(w1Hdf>7`xh?x*bR1`gkh%VA~FBK^!pt6*Z_&nb?%TBwSnDpXd*>At^ectDJ
+z-uL~!{otk3^~s526CyG>_grvB#Kh7RdmLYXUHsv`$V6!_sGhy}^SvK$<ipBiM^<0W
+zE}Z%O{fVc`XT$i!XOI69Uz_{&%DtbSlJB1>8e)mKz#1a9h>sN#IwB!f`yU-L+(kl7
+za-i&ka34UeY1Ceb)BSY<<;#q9SbGVX8RrjGl?0}X6G}>4{P7>N-doRF694wbw2dMx
+zp35RS`oi%=3iHPiT-m9iM$VJ-dHk@KS9o%H<DBJ+EUZnNz;w2rFl-6$_CA7Z|LyIQ
+zD2-c`GGWE0LD<rY4OpOIv>mJ9P#hqoJB{v!FTZyFc`Jmmu=C;M6_vB{&uZtywuwaJ
+z-b}Da()iBCsjuEV0*Yw<!u9qm7?k*KX5;HgvSRDg_6urjWBi+|7Phj@3tzVD+}g}!
+zzI~lrh-$ZMYU^D^$75Mr=6Wkby=ysgE|ydR&xWl+(}C*BwhN_=?dkx$mFX_SK?)El
+zz<Q~&V@uW}pwNtaQz)bcuVNkd6muH9UWz=(^$Jb05$u44Yy?zx!mT>i2H4`>*kZ|m
+zR06uWb;w*VWx*PGg?TO0mO3apbsD;<^syTzjKIFv(uPp_$aB#_8_r!)ph=)WqtPr>
+z0N?=M-CS7#**Ag-pf(sX3FHTC00Y1&AyXf0Aej2tXbXX?hL1j?;R=XA8iG6kDX*KO
+zJX5ix+4|L}0_^Vv9%f5>b0Lka$UcgV{&tHv<GIY%2a<J?Jtb>aEm?a^10JZT_Sgql
+z;qHs5$&jl4IV(M!@R0zn6syv+Ik{;c4-{ihS~OGLk%y}{3}_`|PL^~L63v{1e(BTT
+z0CSf=7@#cC%5IiPbf4HO?BOb~fBnfBkr1QBE3TT)K_-xZG9*7#W<y_bpJQfWs1+L+
+z^OTPSWC<|Hme6k>+`=GF^{YF~mRA5RlVC@IStyq`!BlSo*l=lWN=^J}Z)rAt69|}6
+z@&Nd*)cv!RP6EkDf>()>=~2H*ytqk=%tkLSO9_=WHiF8aPS@ny<=c&3722p%@~n!~
+z)JqvCik6~qOg=$rfNMrYN~p=_8Fa|tLp2-~I`Jmb9uGT6dtPor`DOJ0CxEfSC8QmX
+zW}zcnxP;CWD)-TmYGczdWFfvYhK{^*8w{<nDS+V<%}f2$q19}@?0;kluOljdu<!xN
+zfwB+62PBRx{g<dwFdr&m<^Rz8D0PK}f#pQ|z}Du`+|GNq)@F_^{|#F*ck*=bNv*N)
+EFC4ClOaK4?
+
+literal 0
+HcmV?d00001
+
+diff --git a/docs/PRIVACY_POLICY_TEMPLATE.md b/docs/PRIVACY_POLICY_TEMPLATE.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..18086fd172d6ef8ff5aa821d81655d3e57a4fc8d
+--- /dev/null
++++ b/docs/PRIVACY_POLICY_TEMPLATE.md
+@@ -0,0 +1,30 @@
++# Stride Privacy Policy — Adaptation Template
++
++> This is a product-specific drafting aid, not legal advice. Replace bracketed fields, confirm actual production behavior, and obtain appropriate review before publishing.
++
++**Effective date:** [DATE]  
++**Developer:** [LEGAL NAME AND CONTACT]
++
++## Data Stride handles
++
++Stride processes daily step totals, estimated activity metrics, app preferences, and—only when a user starts a walk—location points needed to calculate and display that route. An active walk is written locally first. Stride does not contain advertising or third-party analytics SDKs.
++
++## Local-only use
++
++An account is optional. Without one, fitness and route information stays in the app'\''s local storage. Removing the app generally removes that local information. Device backups may behave according to the user'\''s operating-system settings.
++
++## Optional cloud sync
++
++If a user creates an account, Stride sends account identifiers, completed walk summaries and routes, daily summaries, goals, and preferences to the configured Supabase project over encrypted transport. It does not upload each live GPS sample as it is collected. Describe Supabase as a processor and add its applicable location and terms here: [DETAILS].
++
++## Permissions
++
++Motion permission supplies step totals where supported. Foreground location is used during a walk. If the user explicitly enables background recording and grants background location, location collection may continue while an active walk is in progress with the screen locked or another app open. It stops when the walk is paused, finished, or discarded.
++
++## Retention and deletion
++
++State the actual retention period: [PERIOD]. Users can delete their cloud account and synced records from Settings. They can remove local records by uninstalling the app [OR DOCUMENT FUTURE IN-APP LOCAL DELETE CONTROL]. Legal or security exceptions, if any: [DETAILS].
++
++## Sharing, security, children, rights, and changes
++
++Document subprocessors, lawful disclosures, security practices without guarantees, the intended age audience, jurisdiction-specific privacy rights and request process, international transfers, policy-change notice, and a monitored privacy contact: [COMPLETE BEFORE RELEASE].
+diff --git a/eas.json b/eas.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..8e8f2c5645b92f4b4ebbc15ba18242c3ab730203
+--- /dev/null
++++ b/eas.json
+@@ -0,0 +1,9 @@
++{
++  "cli": { "version": ">= 16.0.0", "appVersionSource": "remote" },
++  "build": {
++    "development": { "developmentClient": true, "distribution": "internal", "ios": { "simulator": false }, "android": { "buildType": "apk" } },
++    "preview": { "distribution": "internal", "android": { "buildType": "apk" } },
++    "production": { "autoIncrement": true, "android": { "buildType": "app-bundle" } }
++  },
++  "submit": { "production": {} }
++}
+diff --git a/index.js b/index.js
+new file mode 100644
+index 0000000000000000000000000000000000000000..8f76389f5564c1aef7c2c53f5deddba5a421d3e1
+--- /dev/null
++++ b/index.js
+@@ -0,0 +1,3 @@
++import { registerRootComponent } from '\''expo'\'';
++import App from '\''./App'\'';
++registerRootComponent(App);
+diff --git a/package.json b/package.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..cbc5bd021c4a7caf99fa065c4a06125d3ad867fd
+--- /dev/null
++++ b/package.json
+@@ -0,0 +1,47 @@
++{
++  "name": "stride",
++  "version": "1.1.0",
++  "private": true,
++  "main": "index.js",
++  "scripts": {
++    "start": "expo start --dev-client",
++    "start:go": "expo start",
++    "ios": "expo run:ios",
++    "android": "expo run:android",
++    "typecheck": "tsc --noEmit",
++    "lint": "eslint . --ext .ts,.tsx",
++    "test": "jest --runInBand",
++    "doctor": "npx expo-doctor"
++  },
++  "dependencies": {
++    "@expo/vector-icons": "^14.0.4",
++    "@react-native-async-storage/async-storage": "2.1.2",
++    "@react-native-community/netinfo": "11.4.1",
++    "@supabase/supabase-js": "^2.57.4",
++    "expo": "~54.0.0",
++    "expo-dev-client": "~6.0.10",
++    "expo-haptics": "~15.0.7",
++    "expo-keep-awake": "~15.0.7",
++    "expo-linear-gradient": "~15.0.7",
++    "expo-location": "~19.0.7",
++    "expo-sensors": "~15.0.7",
++    "expo-status-bar": "~3.0.8",
++    "expo-task-manager": "~14.0.7",
++    "react": "19.1.0",
++    "react-native": "0.81.4",
++    "react-native-maps": "1.20.1",
++    "react-native-safe-area-context": "~5.6.0",
++    "react-native-svg": "15.12.1"
++  },
++  "devDependencies": {
++    "@types/jest": "^29.5.14",
++    "@types/node": "^22.18.6",
++    "@types/react": "~19.1.10",
++    "eslint": "^8.57.1",
++    "eslint-config-expo": "~10.0.0",
++    "jest": "^29.7.0",
++    "jest-expo": "~54.0.0",
++    "typescript": "~5.9.2"
++  },
++  "jest": { "preset": "jest-expo", "testMatch": ["**/__tests__/**/*.test.ts"] }
++}
+diff --git a/src/__tests__/calculations.test.ts b/src/__tests__/calculations.test.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..91dbfebbe11cd947af316c4d9897f10165698085
+--- /dev/null
++++ b/src/__tests__/calculations.test.ts
+@@ -0,0 +1,2 @@
++import{aggregateWalk,calculateStreak,dateKey,formatDistance,formatDuration,haversineMeters,pace,routeDistance}from'\''../utils/calculations'\'';
++describe('\''activity calculations'\'',()=>{test('\''measures a known coordinate distance'\'',()=>{const distance=haversineMeters({latitude:0,longitude:0,timestamp:0},{latitude:0,longitude:1,timestamp:0});expect(distance).toBeCloseTo(111195,-1)});test('\''sums route segments'\'',()=>{expect(routeDistance([{latitude:0,longitude:0,timestamp:0},{latitude:0,longitude:1,timestamp:1},{latitude:0,longitude:2,timestamp:2}])).toBeCloseTo(222390,-1)});test('\''formats units, duration and pace'\'',()=>{expect(formatDistance(5000,'\''metric'\'')).toBe('\''5.00 km'\'');expect(formatDistance(1609.344,'\''imperial'\'')).toBe('\''1.00 mi'\'');expect(formatDuration(3661)).toBe('\''01:01:01'\'');expect(pace(1000,300,'\''metric'\'')).toBe('\''5:00 /km'\'')});test('\''counts streak from today'\'',()=>{const now=new Date(2026,8,22,12);const make=(d:string,steps:number)=>({date:d,steps,distanceMeters:0,activeMinutes:0,calories:0});expect(calculateStreak({'\''2026-09-22'\'':make('\''2026-09-22'\'',10000),'\''2026-09-21'\'':make('\''2026-09-21'\'',11000)},10000,now)).toBe(2)});test('\''date keys are local calendar dates'\'',()=>expect(dateKey(new Date(2026,0,2))).toBe('\''2026-01-02'\''));test('\''aggregates walk activity without lowering sensor totals'\'',()=>{const result=aggregateWalk({date:'\''2026-01-02'\'',steps:5000,distanceMeters:3800,activeMinutes:10,calories:200},'\''2026-01-02'\'',{steps:1000,distanceMeters:900,durationSeconds:600});expect(result.steps).toBe(5000);expect(result.activeMinutes).toBe(20)})});
+diff --git a/src/__tests__/storage.test.ts b/src/__tests__/storage.test.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..040c6e4c2e1c1eac4c424f88ba4054174f23c95d
+--- /dev/null
++++ b/src/__tests__/storage.test.ts
+@@ -0,0 +1,9 @@
++import AsyncStorage from '\''@react-native-async-storage/async-storage'\'';
++import { clearActiveWalk, loadActiveWalk, saveActiveWalk } from '\''../data/storage'\'';
++import { ActiveWalk } from '\''../types'\'';
++
++jest.mock('\''@react-native-async-storage/async-storage'\'', () => require('\''@react-native-async-storage/async-storage/jest/async-storage-mock'\''));
++describe('\''active walk persistence'\'', () => {
++  beforeEach(() => AsyncStorage.clear());
++  test('\''survives save/load and can be cleared'\'', async () => { const walk: ActiveWalk = { id: '\''walk-1'\'', startedAt: '\''2026-01-01T00:00:00Z'\'', status: '\''paused'\'', activeSeconds: 42, lastResumedAt: null, route: [], lastSignalAt: null }; await saveActiveWalk(walk); expect(await loadActiveWalk()).toEqual(walk); await clearActiveWalk(); expect(await loadActiveWalk()).toBeNull(); });
++});
+diff --git a/src/__tests__/sync.test.ts b/src/__tests__/sync.test.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..cf7bf0fde09fc4dd5eb8971c7acd76e4b1c36f1e
+--- /dev/null
++++ b/src/__tests__/sync.test.ts
+@@ -0,0 +1,5 @@
++import { mergeCloudSnapshot } from '\''../services/sync'\'';
++import { defaults } from '\''../data/storage'\'';
++describe('\''cloud conflict handling'\'', () => {
++  test('\''newer local activity wins and remote walks restore'\'', () => { const local = { ...defaults, activity: { '\''2026-01-01'\'': { date: '\''2026-01-01'\'', steps: 20, distanceMeters: 1, activeMinutes: 1, calories: 1, updatedAt: '\''2026-01-02'\'' } } }; const result = mergeCloudSnapshot(local, { walks: [{ id: '\''w'\'', startedAt: '\''2026-01-01'\'', endedAt: '\''2026-01-01'\'', durationSeconds: 1, distanceMeters: 1, steps: 1, route: [] }], activity: { '\''2026-01-01'\'': { date: '\''2026-01-01'\'', steps: 10, distanceMeters: 1, activeMinutes: 1, calories: 1, updatedAt: '\''2026-01-01'\'' } } }); expect(result.activity['\''2026-01-01'\'']?.steps).toBe(20); expect(result.walks).toHaveLength(1); });
++});
+diff --git a/src/__tests__/walkTracking.test.ts b/src/__tests__/walkTracking.test.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..0b56f58c57587fb6142006c825bcb74fb2963fbb
+--- /dev/null
++++ b/src/__tests__/walkTracking.test.ts
+@@ -0,0 +1,11 @@
++import { appendFilteredPoints, isPlausiblePoint } from '\''../services/walkTracking'\'';
++import { ActiveWalk, Coordinate } from '\''../types'\'';
++
++jest.mock('\''expo-task-manager'\'', () => ({ isTaskDefined: () => true, defineTask: jest.fn() }));
++jest.mock('\''expo-location'\'', () => ({}));
++const point = (longitude: number, timestamp: number, accuracy = 5): Coordinate => ({ latitude: 0, longitude, timestamp, accuracy, speed: 1 });
++describe('\''GPS quality filtering'\'', () => {
++  test('\''accepts accurate walking movement'\'', () => expect(isPlausiblePoint(point(0, 0), point(.00001, 2000))).toBe(true));
++  test('\''rejects inaccurate fixes and impossible jumps'\'', () => { expect(isPlausiblePoint(undefined, point(0, 0, 100))).toBe(false); expect(isPlausiblePoint(point(0, 0), point(1, 1000))).toBe(false); });
++  test('\''only appends plausible ordered points'\'', () => { const walk: ActiveWalk = { id: '\''1'\'', startedAt: '\'''\'', status: '\''active'\'', activeSeconds: 0, lastResumedAt: 0, route: [point(0, 0)], lastSignalAt: 0 }; expect(appendFilteredPoints(walk, [point(1, 1000), point(.00001, 2000)]).route).toHaveLength(2); });
++});
+diff --git a/src/components/UI.tsx b/src/components/UI.tsx
+new file mode 100644
+index 0000000000000000000000000000000000000000..6c0ba20b39c0f4c87bf41e8d2fd6e3a8da4eb02d
+--- /dev/null
++++ b/src/components/UI.tsx
+@@ -0,0 +1,18 @@
++import React, { useEffect, useRef } from '\''react'\'';
++import { ActivityIndicator, Animated, Pressable, StyleSheet, Text, View, ViewStyle } from '\''react-native'\'';
++import Svg, { Circle, Defs, LinearGradient as SvgGradient, Stop } from '\''react-native-svg'\'';
++import { LinearGradient } from '\''expo-linear-gradient'\'';
++import { Ionicons } from '\''@expo/vector-icons'\'';
++import { Palette, tokens } from '\''../theme'\'';
++
++export function Card({ children, c, style }: { children: React.ReactNode; c: Palette; style?: ViewStyle | ViewStyle[] }) { return <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.line, shadowColor: c.shadow }, style]}>{children}</View>; }
++export function ProgressRing({ value, size = 210, c, children }: { value: number; size?: number; c: Palette; children: React.ReactNode }) {
++  const scale = useRef(new Animated.Value(.96)).current; useEffect(() => { Animated.spring(scale, { toValue: 1, useNativeDriver: true, friction: 7 }).start(); }, [value, scale]);
++  const stroke = 15, r = (size - stroke) / 2, circ = 2 * Math.PI * r;
++  return <Animated.View style={{ width: size, height: size, alignItems: '\''center'\'', justifyContent: '\''center'\'', transform: [{ scale }] }}><Svg width={size} height={size} style={StyleSheet.absoluteFill}><Defs><SvgGradient id="ring" x1="0" y1="0" x2="1" y2="1"><Stop offset="0" stopColor={c.primary}/><Stop offset="1" stopColor={c.primary2}/></SvgGradient></Defs><Circle cx={size / 2} cy={size / 2} r={r} stroke={c.surface2} strokeWidth={stroke} fill="none"/><Circle cx={size / 2} cy={size / 2} r={r} stroke="url(#ring)" strokeWidth={stroke} fill="none" strokeDasharray={`${circ} ${circ}`} strokeDashoffset={circ * (1 - Math.min(value, 1))} strokeLinecap="round" rotation="-90" origin={`${size / 2},${size / 2}`}/></Svg>{children}</Animated.View>;
++}
++export function Metric({ icon, value, label, c, selected = false }: { icon: keyof typeof Ionicons.glyphMap; value: string; label: string; c: Palette; selected?: boolean }) { return <View style={[styles.metric, selected && { backgroundColor: c.surface2 }]}><View style={[styles.metricIcon, { backgroundColor: selected ? c.primary : c.surface2 }]}><Ionicons name={icon} size={18} color={selected ? c.primaryText : c.primary}/></View><Text style={[styles.metricValue, { color: c.text }]}>{value}</Text><Text style={[styles.label, { color: c.muted }]}>{label}</Text></View>; }
++export function PrimaryButton({ title, icon = '\''arrow-forward'\'', onPress, c, disabled = false, danger = false }: { title: string; icon?: keyof typeof Ionicons.glyphMap; onPress(): void; c: Palette; disabled?: boolean; danger?: boolean }) { return <Pressable accessibilityRole="button" disabled={disabled} onPress={onPress} style={({ pressed }) => [{ opacity: disabled ? .45 : pressed ? .82 : 1, transform: [{ scale: pressed ? .985 : 1 }] }]}><LinearGradient colors={danger ? [c.danger, '\''#C94058'\''] : [c.primary, c.primary2]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.button}><Text style={[styles.buttonText, { color: c.primaryText }]}>{title}</Text><Ionicons name={icon} size={19} color={c.primaryText}/></LinearGradient></Pressable>; }
++export function EmptyState({ icon, title, body, c }: { icon: keyof typeof Ionicons.glyphMap; title: string; body: string; c: Palette }) { return <View style={styles.empty}><LinearGradient colors={[c.surface2, c.surface]} style={styles.emptyIcon}><Ionicons name={icon} size={30} color={c.primary}/></LinearGradient><Text style={[styles.emptyTitle, { color: c.text }]}>{title}</Text><Text style={[styles.emptyBody, { color: c.muted }]}>{body}</Text></View>; }
++export function Loading({ c, label = '\''Preparing your day…'\'' }: { c: Palette; label?: string }) { return <View style={[styles.loading, { backgroundColor: c.bg }]}><ActivityIndicator color={c.primary} size="large"/><Text style={{ color: c.muted, marginTop: 14 }}>{label}</Text></View>; }
++const styles = StyleSheet.create({ card: { borderRadius: tokens.radius.lg, borderWidth: 1, padding: tokens.spacing.lg, shadowOpacity: .12, shadowRadius: 18, shadowOffset: { width: 0, height: 8 }, elevation: 3 }, metric: { flex: 1, alignItems: '\''center'\'', gap: 5, borderRadius: 18, paddingVertical: 6 }, metricIcon: { height: 38, width: 38, borderRadius: 19, alignItems: '\''center'\'', justifyContent: '\''center'\'', marginBottom: 2 }, metricValue: { fontSize: 16, fontWeight: '\''700'\'' }, label: { fontSize: 11, fontWeight: '\''600'\'' }, button: { height: 58, borderRadius: tokens.radius.md, flexDirection: '\''row'\'', alignItems: '\''center'\'', justifyContent: '\''center'\'', gap: 10 }, buttonText: { fontSize: 17, fontWeight: '\''800'\'' }, empty: { alignItems: '\''center'\'', paddingVertical: 44, paddingHorizontal: 28 }, emptyIcon: { height: 64, width: 64, borderRadius: 24, alignItems: '\''center'\'', justifyContent: '\''center'\'', marginBottom: 18 }, emptyTitle: { fontSize: 20, fontWeight: '\''800'\'', marginBottom: 8 }, emptyBody: { fontSize: 14, lineHeight: 21, textAlign: '\''center'\'' }, loading: { flex: 1, alignItems: '\''center'\'', justifyContent: '\''center'\'' } });
+diff --git a/src/components/WeeklyChart.tsx b/src/components/WeeklyChart.tsx
+new file mode 100644
+index 0000000000000000000000000000000000000000..65992a92bc4b73824cb67035634fc74877ffdc3c
+--- /dev/null
++++ b/src/components/WeeklyChart.tsx
+@@ -0,0 +1,3 @@
++import React from'\''react'\'';import{StyleSheet,Text,View}from'\''react-native'\'';import{Palette}from'\''../theme'\'';
++export function WeeklyChart({data,goal,c}:{data:{date:string;label:string;steps:number}[];goal:number;c:Palette}){const max=Math.max(goal,...data.map(d=>d.steps));return <View><View style={s.head}><Text style={[s.title,{color:c.text}]}>This week</Text><Text style={[s.goal,{color:c.muted}]}>Goal {goal.toLocaleString()}</Text></View><View style={s.chart}>{data.map((d,i)=><View key={d.date} style={s.col}><Text style={[s.number,{color:c.muted}]}>{d.steps>0?`${Math.round(d.steps/100)/10}k`:'\'''\''}</Text><View style={[s.track,{backgroundColor:c.surface2}]}><View style={[s.bar,{height:`${Math.max(5,d.steps/max*100)}%`,backgroundColor:d.steps>=goal?c.primary:i===6?c.primary:c.muted}]}/></View><Text style={[s.day,{color:i===6?c.text:c.muted}]}>{d.label}</Text></View>)}</View></View>}
++const s=StyleSheet.create({head:{flexDirection:'\''row'\'',justifyContent:'\''space-between'\'',alignItems:'\''center'\'',marginBottom:22},title:{fontSize:19,fontWeight:'\''800'\''},goal:{fontSize:12},chart:{height:148,flexDirection:'\''row'\'',alignItems:'\''flex-end'\'',gap:10},col:{flex:1,height:'\''100%'\'',alignItems:'\''center'\''},number:{fontSize:9,height:16},track:{flex:1,width:12,borderRadius:8,justifyContent:'\''flex-end'\'',overflow:'\''hidden'\''},bar:{width:'\''100%'\'',borderRadius:8},day:{fontSize:11,fontWeight:'\''700'\'',marginTop:8}});
+diff --git a/src/context/AppContext.tsx b/src/context/AppContext.tsx
+new file mode 100644
+index 0000000000000000000000000000000000000000..b4a112d83aeceb8a727f510c14d55aeddbdcdcf5
+--- /dev/null
++++ b/src/context/AppContext.tsx
+@@ -0,0 +1,24 @@
++import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from '\''react'\'';
++import { PersistedState, Settings, WalkSession } from '\''../types'\'';
++import { defaults, loadState, saveState } from '\''../data/storage'\'';
++import { activeMinutesFromSteps, aggregateWalk, caloriesFromSteps, dateKey, distanceFromSteps } from '\''../utils/calculations'\'';
++import { CloudSnapshot, markSynced, mergeCloudSnapshot, SyncResult } from '\''../services/sync'\'';
++
++type Context = { state: PersistedState; ready: boolean; storageError: boolean; completeOnboarding(): void; updateSettings(patch: Partial<Settings>): void; syncSteps(steps: number): void; addWalk(walk: WalkSession): void; applySyncResult(result: SyncResult): void; mergeCloud(snapshot: CloudSnapshot): void };
++const AppContext = createContext<Context | undefined>(undefined);
++export function AppProvider({ children }: { children: React.ReactNode }) {
++  const [state, setState] = useState(defaults); const [ready, setReady] = useState(false); const [storageError, setStorageError] = useState(false);
++  useEffect(() => { loadState().then(setState).catch(() => setStorageError(true)).finally(() => setReady(true)); }, []);
++  useEffect(() => { if (ready) saveState(state).catch(() => setStorageError(true)); }, [state, ready]);
++  const applySyncResult = useCallback((result: SyncResult) => { if (result.syncedWalkIds.length || result.activityDates.length) setState(s => markSynced(s, result)); }, []);
++  const mergeCloud = useCallback((snapshot: CloudSnapshot) => setState(s => mergeCloudSnapshot(s, snapshot)), []);
++  const value = useMemo<Context>(() => ({
++    state, ready, storageError, applySyncResult, mergeCloud,
++    completeOnboarding: () => setState(s => ({ ...s, onboarded: true })),
++    updateSettings: patch => setState(s => ({ ...s, settings: { ...s.settings, ...patch } })),
++    syncSteps: steps => setState(s => { const key = dateKey(); const old = s.activity[key]; if (old?.steps === steps) return s; return { ...s, activity: { ...s.activity, [key]: { date: key, steps, distanceMeters: distanceFromSteps(steps), activeMinutes: activeMinutesFromSteps(steps), calories: caloriesFromSteps(steps), updatedAt: new Date().toISOString(), syncStatus: '\''local'\'' } } }; }),
++    addWalk: walk => setState(s => { const key = dateKey(new Date(walk.startedAt)); return { ...s, walks: [{ ...walk, syncStatus: '\''local'\'', updatedAt: new Date().toISOString() }, ...s.walks], activity: { ...s.activity, [key]: aggregateWalk(s.activity[key], key, walk) } }; }),
++  }), [state, ready, storageError, applySyncResult, mergeCloud]);
++  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
++}
++export const useApp = () => { const value = useContext(AppContext); if (!value) throw new Error('\''useApp must be used within AppProvider'\''); return value; };
+diff --git a/src/context/AuthContext.tsx b/src/context/AuthContext.tsx
+new file mode 100644
+index 0000000000000000000000000000000000000000..1050db425d3b519574dba7e0d55f521997f69ae4
+--- /dev/null
++++ b/src/context/AuthContext.tsx
+@@ -0,0 +1,40 @@
++import React, { createContext, useContext, useEffect, useMemo, useState } from '\''react'\'';
++import { Linking } from '\''react-native'\'';
++import { Session } from '\''@supabase/supabase-js'\'';
++import { isCloudConfigured, supabase } from '\''../services/supabase'\'';
++
++type AuthContextValue = {
++  session: Session | null; loading: boolean; configured: boolean;
++  signIn(email: string, password: string): Promise<void>;
++  signUp(email: string, password: string): Promise<string>;
++  resetPassword(email: string): Promise<void>;
++  updatePassword(password: string): Promise<void>; signOut(): Promise<void>; deleteAccount(): Promise<void>;
++};
++const AuthContext = createContext<AuthContextValue | null>(null);
++
++export function AuthProvider({ children }: { children: React.ReactNode }) {
++  const [session, setSession] = useState<Session | null>(null);
++  const [loading, setLoading] = useState(isCloudConfigured);
++  useEffect(() => {
++    if (!supabase) return setLoading(false);
++    supabase.auth.getSession().then(({ data }) => { setSession(data.session); setLoading(false); });
++    const { data } = supabase.auth.onAuthStateChange((_event, next) => setSession(next));
++    return () => data.subscription.unsubscribe();
++  }, []);
++  useEffect(() => {
++    if (!supabase) return;
++    const handle = async (url: string | null) => { if (!url) return; const parameters = new URLSearchParams(url.split('\''#'\'')[1] ?? url.split('\''?'\'')[1] ?? '\'''\''); const access_token = parameters.get('\''access_token'\''); const refresh_token = parameters.get('\''refresh_token'\''); if (access_token && refresh_token) await supabase.auth.setSession({ access_token, refresh_token }); };
++    Linking.getInitialURL().then(handle); const listener = Linking.addEventListener('\''url'\'', event => { void handle(event.url); }); return () => listener.remove();
++  }, []);
++  const value = useMemo<AuthContextValue>(() => ({
++    session, loading, configured: isCloudConfigured,
++    signIn: async (email, password) => { if (!supabase) throw new Error('\''Cloud sync is not configured.'\''); const { error } = await supabase.auth.signInWithPassword({ email, password }); if (error) throw error; },
++    signUp: async (email, password) => { if (!supabase) throw new Error('\''Cloud sync is not configured.'\''); const { data, error } = await supabase.auth.signUp({ email, password }); if (error) throw error; return data.session ? '\''Account created.'\'' : '\''Check your email to confirm your account.'\''; },
++    resetPassword: async email => { if (!supabase) throw new Error('\''Cloud sync is not configured.'\''); const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: '\''stride://reset-password'\'' }); if (error) throw error; },
++    updatePassword: async password => { if (!supabase) throw new Error('\''Cloud sync is not configured.'\''); const { error } = await supabase.auth.updateUser({ password }); if (error) throw error; },
++    signOut: async () => { if (supabase) { const { error } = await supabase.auth.signOut(); if (error) throw error; } },
++    deleteAccount: async () => { if (!supabase) throw new Error('\''Cloud sync is not configured.'\''); const { error } = await supabase.rpc('\''delete_own_account'\''); if (error) throw error; await supabase.auth.signOut(); },
++  }), [session, loading]);
++  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
++}
++export const useAuth = () => { const value = useContext(AuthContext); if (!value) throw new Error('\''useAuth requires AuthProvider'\''); return value; };
+diff --git a/src/data/storage.ts b/src/data/storage.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..d097065119cc9ad294b3ec69aec9d6feb67a4828
+--- /dev/null
++++ b/src/data/storage.ts
+@@ -0,0 +1,30 @@
++import AsyncStorage from '\''@react-native-async-storage/async-storage'\'';
++import { ActiveWalk, PersistedState } from '\''../types'\'';
++
++export const STORAGE_KEY = '\''@stride/state/v2'\'';
++export const ACTIVE_WALK_KEY = '\''@stride/active-walk/v1'\'';
++export const defaults: PersistedState = {
++  onboarded: false,
++  settings: { stepGoal: 10000, units: '\''metric'\'', theme: '\''system'\'', haptics: true, keepScreenAwake: false, backgroundTracking: false },
++  walks: [],
++  activity: {},
++};
++
++export async function loadState(): Promise<PersistedState> {
++  const raw = await AsyncStorage.getItem(STORAGE_KEY);
++  if (!raw) return defaults;
++  try {
++    const value = JSON.parse(raw) as Partial<PersistedState>;
++    return { ...defaults, ...value, settings: { ...defaults.settings, ...value.settings }, walks: value.walks ?? [], activity: value.activity ?? {} };
++  } catch {
++    return defaults;
++  }
++}
++export const saveState = (state: PersistedState) => AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(state));
++export const loadActiveWalk = async (): Promise<ActiveWalk | null> => {
++  const raw = await AsyncStorage.getItem(ACTIVE_WALK_KEY);
++  if (!raw) return null;
++  try { return JSON.parse(raw) as ActiveWalk; } catch { return null; }
++};
++export const saveActiveWalk = (walk: ActiveWalk) => AsyncStorage.setItem(ACTIVE_WALK_KEY, JSON.stringify(walk));
++export const clearActiveWalk = () => AsyncStorage.removeItem(ACTIVE_WALK_KEY);
+diff --git a/src/hooks/useCloudSync.ts b/src/hooks/useCloudSync.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..1c3375b416e8d5e663ef1f0b25041301b0774aba
+--- /dev/null
++++ b/src/hooks/useCloudSync.ts
+@@ -0,0 +1,20 @@
++import { useCallback, useEffect, useRef, useState } from '\''react'\'';
++import NetInfo from '\''@react-native-community/netinfo'\'';
++import { useApp } from '\''../context/AppContext'\'';
++import { useAuth } from '\''../context/AuthContext'\'';
++import { fetchCloudSnapshot, syncLocalState } from '\''../services/sync'\'';
++
++export function useCloudSync() {
++  const { state, applySyncResult, mergeCloud } = useApp(); const { session } = useAuth(); const restoredUser = useRef<string | null>(null);
++  const [status, setStatus] = useState<'\''offline'\''|'\''idle'\''|'\''syncing'\''|'\''synced'\''|'\''error'\''>('\''idle'\'');
++  const sync = useCallback(async () => {
++    if (!session) return setStatus('\''idle'\'');
++    const network = await NetInfo.fetch(); if (!network.isConnected) return setStatus('\''offline'\'');
++    setStatus('\''syncing'\'');
++    if (restoredUser.current !== session.user.id) { try { mergeCloud(await fetchCloudSnapshot(session.user.id)); restoredUser.current = session.user.id; return; } catch { setStatus('\''error'\''); return; } }
++    const result = await syncLocalState(state, session.user.id); applySyncResult(result);
++    setStatus(result.error ? '\''error'\'' : '\''synced'\'');
++  }, [session, state, applySyncResult, mergeCloud]);
++  useEffect(() => { const timer = setTimeout(sync, 1500); return () => clearTimeout(timer); }, [sync]);
++  return { status, sync };
++}
+diff --git a/src/hooks/usePedometer.ts b/src/hooks/usePedometer.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..d0617e931ef71aa5b4f525f9ae6b774ee74020ca
+--- /dev/null
++++ b/src/hooks/usePedometer.ts
+@@ -0,0 +1,30 @@
++import { useEffect, useState } from '\''react'\'';
++import { AppState, Platform } from '\''react-native'\'';
++import AsyncStorage from '\''@react-native-async-storage/async-storage'\'';
++import { Pedometer } from '\''expo-sensors'\'';
++import { dateKey } from '\''../utils/calculations'\'';
++
++export type PedometerState = { steps: number; status: '\''loading'\''|'\''available'\''|'\''unavailable'\''|'\''denied'\''|'\''error'\''; limitation?: string; refresh(): void };
++const androidKey = (date: string) => `@stride/android-observed-steps/${date}`;
++export function usePedometer(): PedometerState {
++  const [steps, setSteps] = useState(0); const [status, setStatus] = useState<PedometerState['\''status'\'']>('\''loading'\''); const [tick, setTick] = useState(0); const [limitation, setLimitation] = useState<string>();
++  useEffect(() => {
++    let mounted = true; let subscription: { remove(): void } | undefined;
++    const start = async () => {
++      setStatus('\''loading'\'');
++      try {
++        if (!await Pedometer.isAvailableAsync()) { if (mounted) setStatus('\''unavailable'\''); return; }
++        const permission = await Pedometer.requestPermissionsAsync(); if (!permission.granted) { if (mounted) setStatus('\''denied'\''); return; }
++        const day = dateKey(); let baseline = 0;
++        if (Platform.OS === '\''ios'\'') { const from = new Date(); from.setHours(0, 0, 0, 0); baseline = (await Pedometer.getStepCountAsync(from, new Date())).steps; }
++        else { baseline = Number(await AsyncStorage.getItem(androidKey(day))) || 0; setLimitation('\''Android shows steps observed by Stride today; some devices do not expose historical steps while the app was stopped.'\''); }
++        if (mounted) { setSteps(baseline); setStatus('\''available'\''); }
++        subscription = Pedometer.watchStepCount(({ steps: live }) => { if (!mounted) return; const total = baseline + live; setSteps(total); if (Platform.OS === '\''android'\'') AsyncStorage.setItem(androidKey(day), String(total)).catch(() => undefined); });
++      } catch { if (mounted) setStatus('\''error'\''); }
++    };
++    start(); const appSubscription = AppState.addEventListener('\''change'\'', next => { if (next === '\''active'\'' && Platform.OS === '\''ios'\'') setTick(value => value + 1); });
++    const midnightCheck = setInterval(() => { if (dateKey() !== dateKey(new Date(Date.now() - 60000))) setTick(value => value + 1); }, 60000);
++    return () => { mounted = false; subscription?.remove(); appSubscription.remove(); clearInterval(midnightCheck); };
++  }, [tick]);
++  return { steps, status, limitation, refresh: () => setTick(value => value + 1) };
++}
+diff --git a/src/screens/AccountScreen.tsx b/src/screens/AccountScreen.tsx
+new file mode 100644
+index 0000000000000000000000000000000000000000..ebfa66f792541e0d169819c9bd12a8dbc5abb55b
+--- /dev/null
++++ b/src/screens/AccountScreen.tsx
+@@ -0,0 +1,15 @@
++import React, { useState } from '\''react'\'';
++import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from '\''react-native'\'';
++import { Ionicons } from '\''@expo/vector-icons'\'';
++import { useAuth } from '\''../context/AuthContext'\'';
++import { Palette } from '\''../theme'\'';
++import { Card, PrimaryButton } from '\''../components/UI'\'';
++
++export function AccountScreen({ c, onClose }: { c: Palette; onClose(): void }) {
++  const auth = useAuth(); const [mode, setMode] = useState<'\''signin'\''|'\''signup'\''>('\''signin'\''); const [email, setEmail] = useState('\'''\''); const [password, setPassword] = useState('\'''\''); const [newPassword, setNewPassword] = useState('\'''\''); const [busy, setBusy] = useState(false); const [message, setMessage] = useState('\'''\'');
++  const execute = async () => { setBusy(true); setMessage('\'''\''); try { if (mode === '\''signin'\'') await auth.signIn(email.trim(), password); else setMessage(await auth.signUp(email.trim(), password)); } catch (e) { setMessage(e instanceof Error ? e.message : '\''Something went wrong.'\''); } finally { setBusy(false); } };
++  if (auth.session) return <View style={[s.root, { backgroundColor: c.bg }]}><Header c={c} onClose={onClose}/><View style={s.signed}><View style={[s.avatar, { backgroundColor: c.surface2 }]}><Ionicons name="person" size={34} color={c.primary}/></View><Text style={[s.title, { color: c.text }]}>Cloud backup is on</Text><Text style={[s.body, { color: c.muted }]}>{auth.session.user.email}{'\''\n'\''}Completed walks, summaries, goals and preferences sync when online.</Text><Card c={c} style={s.card}><TextInput autoCapitalize="none" secureTextEntry placeholder="New password (optional)" placeholderTextColor={c.muted} value={newPassword} onChangeText={setNewPassword} style={[s.input, { backgroundColor: c.surface2, borderColor: c.line, color: c.text }]}/>{newPassword.length >= 6 ? <PrimaryButton c={c} title="Update Password" icon="key" onPress={() => auth.updatePassword(newPassword).then(() => { setNewPassword('\'''\''); Alert.alert('\''Password updated'\''); }).catch(e => Alert.alert('\''Could not update password'\'', e.message))}/> : null}<Pressable onPress={() => auth.signOut().catch(e => Alert.alert('\''Could not sign out'\'', e.message))}><Text style={[s.link, { color: c.text }]}>Sign out</Text></Pressable><Pressable onPress={() => Alert.alert('\''Delete account and cloud data?'\'', '\''This permanently deletes your Supabase account and all synced data. Local activity stays on this device.'\'', [{ text: '\''Cancel'\'', style: '\''cancel'\'' }, { text: '\''Delete'\'', style: '\''destructive'\'', onPress: () => auth.deleteAccount().catch(e => Alert.alert('\''Could not delete account'\'', e.message)) }])}><Text style={[s.link, { color: c.danger }]}>Delete account & cloud data</Text></Pressable></Card></View></View>;
++  return <KeyboardAvoidingView style={[s.root, { backgroundColor: c.bg }]} behavior={Platform.OS === '\''ios'\'' ? '\''padding'\'' : undefined}><Header c={c} onClose={onClose}/><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={s.form}><Text style={[s.title, { color: c.text }]}>{mode === '\''signin'\'' ? '\''Welcome back.'\'' : '\''Back up your strides.'\''}</Text><Text style={[s.body, { color: c.muted }]}>{auth.configured ? '\''Your app remains fully usable offline. Sign in only if you want encrypted transport and cross-device cloud restoration.'\'' : '\''Cloud sync is optional and is not configured in this build. Add the public Supabase environment values to enable accounts.'\''}</Text><TextInput autoCapitalize="none" autoComplete="email" keyboardType="email-address" placeholder="Email" placeholderTextColor={c.muted} value={email} onChangeText={setEmail} style={[s.input, { backgroundColor: c.surface, borderColor: c.line, color: c.text }]}/><TextInput autoCapitalize="none" autoComplete={mode === '\''signup'\'' ? '\''new-password'\'' : '\''current-password'\''} secureTextEntry placeholder="Password" placeholderTextColor={c.muted} value={password} onChangeText={setPassword} style={[s.input, { backgroundColor: c.surface, borderColor: c.line, color: c.text }]}/>{message ? <Text style={[s.message, { color: message.includes('\''wrong'\'') || message.includes('\''Invalid'\'') ? c.danger : c.primary }]}>{message}</Text> : null}<PrimaryButton c={c} disabled={busy || !auth.configured || !email || password.length < 6} title={busy ? '\''Please wait…'\'' : mode === '\''signin'\'' ? '\''Sign In'\'' : '\''Create Account'\''} icon={mode === '\''signin'\'' ? '\''log-in'\'' : '\''person-add'\''} onPress={execute}/><Pressable onPress={() => { setMode(mode === '\''signin'\'' ? '\''signup'\'' : '\''signin'\''); setMessage('\'''\''); }}><Text style={[s.link, { color: c.primary }]}>{mode === '\''signin'\'' ? '\''New to Stride? Create an account'\'' : '\''Already have an account? Sign in'\''}</Text></Pressable>{mode === '\''signin'\'' ? <Pressable onPress={async () => { if (!email) return setMessage('\''Enter your email first.'\''); try { await auth.resetPassword(email.trim()); setMessage('\''Password reset email sent.'\''); } catch (e) { setMessage(e instanceof Error ? e.message : '\''Could not send reset email.'\''); } }}><Text style={[s.link, { color: c.muted }]}>Forgot password?</Text></Pressable> : null}</ScrollView></KeyboardAvoidingView>;
++}
++function Header({ c, onClose }: { c: Palette; onClose(): void }) { return <View style={s.header}><Pressable accessibilityLabel="Close account" onPress={onClose}><Ionicons name="close" size={27} color={c.text}/></Pressable><Text style={[s.headerTitle, { color: c.text }]}>Account</Text><View style={{ width: 27 }}/></View>; }
++const s = StyleSheet.create({ root: { flex: 1 }, header: { paddingTop: 58, paddingHorizontal: 22, flexDirection: '\''row'\'', justifyContent: '\''space-between'\'', alignItems: '\''center'\'' }, headerTitle: { fontWeight: '\''800'\'', fontSize: 17 }, form: { padding: 24, paddingTop: 70, gap: 16 }, title: { fontSize: 31, fontWeight: '\''900'\'', letterSpacing: -1 }, body: { fontSize: 14, lineHeight: 22, marginBottom: 12, textAlign: '\''center'\'' }, input: { height: 56, borderWidth: 1, borderRadius: 17, paddingHorizontal: 17, fontSize: 16 }, link: { textAlign: '\''center'\'', fontWeight: '\''700'\'', paddingVertical: 8 }, message: { fontSize: 13, textAlign: '\''center'\'' }, signed: { flex: 1, alignItems: '\''center'\'', padding: 24, paddingTop: 80 }, avatar: { width: 80, height: 80, borderRadius: 30, alignItems: '\''center'\'', justifyContent: '\''center'\'' }, card: { alignSelf: '\''stretch'\'', marginTop: 28, gap: 8 } });
+diff --git a/src/screens/HistoryScreen.tsx b/src/screens/HistoryScreen.tsx
+new file mode 100644
+index 0000000000000000000000000000000000000000..52932b9b573cd70fd3f2804b67a333ec257d9022
+--- /dev/null
++++ b/src/screens/HistoryScreen.tsx
+@@ -0,0 +1,3 @@
++import React,{useState}from'\''react'\'';import{Pressable,ScrollView,StyleSheet,Text,View}from'\''react-native'\'';import{Ionicons}from'\''@expo/vector-icons'\'';import{useApp}from'\''../context/AppContext'\'';import{Palette}from'\''../theme'\'';import{formatDistance,formatDuration,lastSevenDays,pace}from'\''../utils/calculations'\'';import{Card,EmptyState}from'\''../components/UI'\'';import{WeeklyChart}from'\''../components/WeeklyChart'\'';
++export function HistoryScreen({c}:{c:Palette}){const{state}=useApp();const[mode,setMode]=useState<'\''walks'\''|'\''daily'\''>('\''walks'\'');return <ScrollView contentContainerStyle={s.content}><Text style={[s.title,{color:c.text}]}>Activity</Text><Text style={[s.subtitle,{color:c.muted}]}>Your movement, all in one place.</Text><Card c={c}><WeeklyChart data={lastSevenDays(state.activity)} goal={state.settings.stepGoal} c={c}/></Card><View style={[s.segment,{backgroundColor:c.surface2}]}>{(['\''walks'\'','\''daily'\'']as const).map(x=><Pressable key={x} onPress={()=>setMode(x)} style={[s.segmentItem,mode===x&&{backgroundColor:c.surface}]}><Text style={{color:mode===x?c.text:c.muted,fontWeight:'\''800'\'',textTransform:'\''capitalize'\''}}>{x}</Text></Pressable>)}</View>{mode==='\''walks'\''?(state.walks.length?state.walks.map(w=><Card c={c} key={w.id} style={s.walk}><View style={[s.walkIcon,{backgroundColor:c.surface2}]}><Ionicons name="walk" size={22} color={c.primary}/></View><View style={s.walkMain}><Text style={[s.walkTitle,{color:c.text}]}>{new Date(w.startedAt).toLocaleDateString(undefined,{weekday:'\''long'\'',month:'\''short'\'',day:'\''numeric'\''})}</Text><Text style={[s.walkTime,{color:c.muted}]}>{new Date(w.startedAt).toLocaleTimeString(undefined,{hour:'\''numeric'\'',minute:'\''2-digit'\''})}</Text><View style={s.walkStats}><Text style={{color:c.text,fontWeight:'\''700'\''}}>{formatDistance(w.distanceMeters,state.settings.units)}</Text><Text style={{color:c.muted}}>·</Text><Text style={{color:c.text,fontWeight:'\''700'\''}}>{formatDuration(w.durationSeconds).slice(0,5)}</Text><Text style={{color:c.muted}}>· {pace(w.distanceMeters,w.durationSeconds,state.settings.units)}</Text></View></View></Card>):<Card c={c}><EmptyState c={c} icon="map-outline" title="Your walks live here" body="Start a recorded walk and your route, pace, and distance will appear here."/></Card>):Object.values(state.activity).sort((a,b)=>b.date.localeCompare(a.date)).map(day=><Card c={c} key={day.date} style={s.daily}><View><Text style={[s.walkTitle,{color:c.text}]}>{new Date(`${day.date}T12:00:00`).toLocaleDateString(undefined,{weekday:'\''long'\'',month:'\''long'\'',day:'\''numeric'\''})}</Text><Text style={[s.walkTime,{color:c.muted}]}>{formatDistance(day.distanceMeters,state.settings.units)} · {day.activeMinutes} active min</Text></View><Text style={[s.dailySteps,{color:c.text}]}>{day.steps.toLocaleString()}</Text></Card>)}</ScrollView>}
++const s=StyleSheet.create({content:{padding:20,paddingBottom:125,gap:14},title:{fontSize:32,fontWeight:'\''800'\'',letterSpacing:-1,marginTop:8},subtitle:{fontSize:15,marginBottom:10},segment:{padding:4,borderRadius:14,flexDirection:'\''row'\'',marginTop:4},segmentItem:{flex:1,padding:11,borderRadius:11,alignItems:'\''center'\''},walk:{flexDirection:'\''row'\'',alignItems:'\''center'\'',padding:16},walkIcon:{height:48,width:48,borderRadius:17,alignItems:'\''center'\'',justifyContent:'\''center'\'',marginRight:14},walkMain:{flex:1},walkTitle:{fontSize:15,fontWeight:'\''800'\''},walkTime:{fontSize:12,marginTop:3},walkStats:{flexDirection:'\''row'\'',gap:6,marginTop:10,alignItems:'\''center'\''},daily:{flexDirection:'\''row'\'',alignItems:'\''center'\'',justifyContent:'\''space-between'\''},dailySteps:{fontSize:20,fontWeight:'\''800'\''}});
+diff --git a/src/screens/HomeScreen.tsx b/src/screens/HomeScreen.tsx
+new file mode 100644
+index 0000000000000000000000000000000000000000..4d9a0559ac783f014ae6962dc7aeb35435ddbed4
+--- /dev/null
++++ b/src/screens/HomeScreen.tsx
+@@ -0,0 +1,4 @@
++import React,{useEffect}from'\''react'\'';import{RefreshControl,ScrollView,StyleSheet,Text,View}from'\''react-native'\'';import{LinearGradient}from'\''expo-linear-gradient'\'';
++import{useApp}from'\''../context/AppContext'\'';import{usePedometer}from'\''../hooks/usePedometer'\'';import{Palette}from'\''../theme'\'';import{calculateStreak,dateKey,formatDistance,lastSevenDays}from'\''../utils/calculations'\'';import{Card,Metric,PrimaryButton,ProgressRing}from'\''../components/UI'\'';import{WeeklyChart}from'\''../components/WeeklyChart'\'';
++export function HomeScreen({c,onStart}:{c:Palette;onStart():void}){const{state,syncSteps}=useApp();const ped=usePedometer();useEffect(()=>{if(ped.status==='\''available'\'')syncSteps(ped.steps)},[ped.steps,ped.status,syncSteps]);const today=state.activity[dateKey()]??{steps:0,distanceMeters:0,activeMinutes:0,calories:0,date:dateKey()};const progress=today.steps/state.settings.stepGoal;const greeting=new Date().getHours()<12?'\''Good morning'\'':new Date().getHours()<18?'\''Good afternoon'\'':'\''Good evening'\'';return <ScrollView contentContainerStyle={s.content} refreshControl={<RefreshControl refreshing={ped.status==='\''loading'\''} onRefresh={ped.refresh} tintColor={c.primary}/>}><Text style={[s.eyebrow,{color:c.primary}]}>{greeting}</Text><Text style={[s.heading,{color:c.text}]}>Make today count.</Text><LinearGradient colors={[c.surface,c.surface2]} style={[s.hero,{borderColor:c.line}]}><Text style={[s.today,{color:c.muted}]}>TODAY · {new Date().toLocaleDateString(undefined,{month:'\''long'\'',day:'\''numeric'\''}).toUpperCase()}</Text><ProgressRing value={progress} c={c}><Text style={[s.steps,{color:c.text}]}>{today.steps.toLocaleString()}</Text><Text style={[s.goal,{color:c.muted}]}>of {state.settings.stepGoal.toLocaleString()} steps</Text><Text style={[s.percent,{color:c.primary}]}>{Math.round(progress*100)}%</Text></ProgressRing><View style={s.metrics}><Metric icon="navigate" value={formatDistance(today.distanceMeters,state.settings.units)} label="DISTANCE" c={c}/><View style={[s.divider,{backgroundColor:c.line}]}/><Metric icon="flame" value={`${today.calories}`} label="CALORIES" c={c}/><View style={[s.divider,{backgroundColor:c.line}]}/><Metric icon="time" value={`${today.activeMinutes} min`} label="ACTIVE" c={c}/></View></LinearGradient>{ped.limitation?<Card c={c}><Text style={[s.noticeTitle,{color:c.text}]}>Android step availability</Text><Text style={[s.notice,{color:c.muted}]}>{ped.limitation}</Text></Card>:null}{ped.status!=='\''available'\''&&ped.status!=='\''loading'\''?<Card c={c}><Text style={[s.noticeTitle,{color:c.text}]}>Motion data unavailable</Text><Text style={[s.notice,{color:c.muted}]}>{ped.status==='\''denied'\''?'\''Enable Motion & Fitness for Stride in system Settings, then pull down to retry.'\'':'\''Step tracking is not available on this device. You can still record GPS walks.'\''}</Text></Card>:null}<View style={s.streakRow}><Card c={c} style={s.streakCard}><Text style={s.fire}>🔥</Text><View><Text style={[s.streakNum,{color:c.text}]}>{calculateStreak(state.activity,state.settings.stepGoal)}</Text><Text style={[s.streakLabel,{color:c.muted}]}>day streak</Text></View></Card><View style={s.start}><PrimaryButton title="Start Walk" icon="play" onPress={onStart} c={c}/></View></View><Card c={c}><WeeklyChart data={lastSevenDays(state.activity)} goal={state.settings.stepGoal} c={c}/></Card></ScrollView>}
++const s=StyleSheet.create({content:{padding:20,paddingBottom:125,gap:16},eyebrow:{fontSize:13,fontWeight:'\''800'\'',letterSpacing:1.1,marginTop:8},heading:{fontSize:32,fontWeight:'\''800'\'',letterSpacing:-1.1,marginBottom:5},hero:{padding:22,borderRadius:30,borderWidth:1,alignItems:'\''center'\'',gap:20},today:{fontSize:11,fontWeight:'\''800'\'',letterSpacing:1.4},steps:{fontSize:44,fontWeight:'\''800'\'',letterSpacing:-2},goal:{fontSize:13,marginTop:2},percent:{fontSize:12,fontWeight:'\''800'\'',marginTop:10},metrics:{flexDirection:'\''row'\'',alignSelf:'\''stretch'\''},divider:{width:1,height:54},streakRow:{flexDirection:'\''row'\'',gap:12},streakCard:{flex:1,flexDirection:'\''row'\'',alignItems:'\''center'\'',gap:10,padding:14},fire:{fontSize:28},streakNum:{fontSize:22,fontWeight:'\''800'\''},streakLabel:{fontSize:11},start:{flex:1.5,justifyContent:'\''center'\''},noticeTitle:{fontWeight:'\''800'\'',fontSize:15,marginBottom:6},notice:{fontSize:13,lineHeight:19}});
+diff --git a/src/screens/OnboardingScreen.tsx b/src/screens/OnboardingScreen.tsx
+new file mode 100644
+index 0000000000000000000000000000000000000000..31514940ad06f2d58fa5ca200d5a066f16305ea8
+--- /dev/null
++++ b/src/screens/OnboardingScreen.tsx
+@@ -0,0 +1,4 @@
++import React,{useState}from'\''react'\'';import{Dimensions,Pressable,ScrollView,StyleSheet,Text,View}from'\''react-native'\'';import{Ionicons}from'\''@expo/vector-icons'\'';import{LinearGradient}from'\''expo-linear-gradient'\'';import{Palette}from'\''../theme'\'';import{PrimaryButton}from'\''../components/UI'\'';
++const pages=[{icon:'\''footsteps'\'' as const,kicker:'\''WELCOME TO STRIDE'\'',title:'\''Move with purpose.'\'',body:'\''A calm, private companion for everyday movement—built to help you walk a little farther.'\'',items:['\''Daily steps at a glance'\'','\''Goals that fit your routine'\'']},{icon:'\''navigate-circle'\'' as const,kicker:'\''RECORD YOUR ROUTE'\'',title:'\''Walks worth remembering.'\'',body:'\''Capture distance, pace, time, and your live route whenever you head out.'\'',items:['\''Live GPS route and pace'\'','\''Pause whenever you need'\'']},{icon:'\''shield-checkmark'\'' as const,kicker:'\''PRIVATE BY DESIGN'\'',title:'\''Your health. Your device.'\'',body:'\''No account and no cloud. Your activity stays stored locally on your phone.'\'',items:['\''Motion access counts steps'\'','\''Location is used only for recorded walks'\'']}];
++export function OnboardingScreen({c,onDone}:{c:Palette;onDone():void}){const[index,setIndex]=useState(0);const p=pages[index]!;return <View style={[s.root,{backgroundColor:c.bg}]}><LinearGradient colors={[c.surface2,c.bg]} style={StyleSheet.absoluteFill}/><View style={s.top}><Text style={[s.brand,{color:c.text}]}>stride<Text style={{color:c.primary}}>.</Text></Text>{index<pages.length-1?<Pressable onPress={onDone}><Text style={[s.skip,{color:c.muted}]}>Skip</Text></Pressable>:null}</View><ScrollView contentContainerStyle={s.content}><View style={[s.art,{backgroundColor:c.surface,borderColor:c.line}]}><View style={[s.glow,{backgroundColor:c.primary}]} /><Ionicons name={p.icon} size={92} color={c.primary}/></View><Text style={[s.kicker,{color:c.primary}]}>{p.kicker}</Text><Text style={[s.title,{color:c.text}]}>{p.title}</Text><Text style={[s.body,{color:c.muted}]}>{p.body}</Text><View style={s.items}>{p.items.map(item=><View style={s.item} key={item}><View style={[s.check,{backgroundColor:c.surface2}]}><Ionicons name="checkmark" color={c.primary} size={17}/></View><Text style={[s.itemText,{color:c.text}]}>{item}</Text></View>)}</View></ScrollView><View style={s.bottom}><View style={s.dots}>{pages.map((_,i)=><View key={i} style={[s.dot,{backgroundColor:i===index?c.primary:c.line,width:i===index?24:7}]}/>)}</View><PrimaryButton c={c} title={index===pages.length-1?'\''Allow & Continue'\'':'\''Continue'\''} onPress={()=>index===pages.length-1?onDone():setIndex(index+1)} icon={index===pages.length-1?'\''checkmark'\'':'\''arrow-forward'\''}/><Text style={[s.note,{color:c.muted}]}>{index===pages.length-1?'\''You’ll be asked for Motion access next. Location is requested only when you start a walk.'\'':'\'' '\''}</Text></View></View>}
++const s=StyleSheet.create({root:{flex:1,paddingHorizontal:24},top:{paddingTop:62,flexDirection:'\''row'\'',justifyContent:'\''space-between'\''},brand:{fontSize:23,fontWeight:'\''900'\''},skip:{fontSize:15,fontWeight:'\''700'\'',padding:5},content:{alignItems:'\''center'\'',paddingTop:45},art:{height:220,width:Dimensions.get('\''window'\'').width-48,borderRadius:40,borderWidth:1,alignItems:'\''center'\'',justifyContent:'\''center'\'',overflow:'\''hidden'\''},glow:{position:'\''absolute'\'',height:150,width:150,borderRadius:75,opacity:.13,transform:[{scale:1.8}]},kicker:{fontSize:11,fontWeight:'\''900'\'',letterSpacing:1.7,marginTop:38},title:{fontSize:37,fontWeight:'\''900'\'',letterSpacing:-1.4,textAlign:'\''center'\'',marginTop:11},body:{fontSize:15,lineHeight:23,textAlign:'\''center'\'',marginTop:13,maxWidth:340},items:{alignSelf:'\''stretch'\'',marginTop:25,gap:13},item:{flexDirection:'\''row'\'',alignItems:'\''center'\'',gap:12},check:{width:29,height:29,borderRadius:10,alignItems:'\''center'\'',justifyContent:'\''center'\''},itemText:{fontSize:14,fontWeight:'\''600'\''},bottom:{paddingBottom:26,gap:17},dots:{flexDirection:'\''row'\'',justifyContent:'\''center'\'',gap:6},dot:{height:7,borderRadius:4},note:{height:28,textAlign:'\''center'\'',fontSize:10,lineHeight:14}});
+diff --git a/src/screens/PrivacyScreen.tsx b/src/screens/PrivacyScreen.tsx
+new file mode 100644
+index 0000000000000000000000000000000000000000..627ff6edfca02c35d2b6c6bc8a9c07a46493cba3
+--- /dev/null
++++ b/src/screens/PrivacyScreen.tsx
+@@ -0,0 +1,4 @@
++import React from '\''react'\''; import { Pressable, ScrollView, StyleSheet, Text, View } from '\''react-native'\''; import { Ionicons } from '\''@expo/vector-icons'\''; import { Palette } from '\''../theme'\''; import { Card } from '\''../components/UI'\'';
++export function PrivacyScreen({ c, onClose }: { c: Palette; onClose(): void }) { return <View style={[s.root, { backgroundColor: c.bg }]}><View style={s.header}><Pressable onPress={onClose}><Ionicons name="chevron-back" size={28} color={c.text}/></Pressable><Text style={[s.headerTitle, { color: c.text }]}>Privacy</Text><View style={{ width: 28 }}/></View><ScrollView contentContainerStyle={s.content}><Text style={[s.title, { color: c.text }]}>Your movement is personal.</Text><Text style={[s.intro, { color: c.muted }]}>Stride is local-first. Tracking never depends on an account or network connection.</Text><PrivacyCard c={c} icon="phone-portrait-outline" title="Stored on this device" body="Daily activity, preferences, active sessions, completed routes, distance and pace are saved locally. Uninstalling clears this local copy."/><PrivacyCard c={c} icon="location-outline" title="How location is used" body="Foreground location draws and measures a walk you explicitly start. Optional background permission keeps that active walk recording when the screen locks. Stride never fabricates movement or tracks outside an active session."/><PrivacyCard c={c} icon="cloud-outline" title="Optional cloud sync" body="If you create an account, completed walks (including compressed JSON route points), daily summaries, goals and preferences sync to Supabase. Active GPS points remain local until you save the walk. No ad or analytics SDK is included."/><PrivacyCard c={c} icon="trash-outline" title="Your controls" body="Sign out at any time. Delete account removes your authentication record and cascades all synced records. Local data remains unless the app is uninstalled. This text is a product disclosure, not legal advice; adapt the repository privacy template with counsel before release."/></ScrollView></View>; }
++function PrivacyCard({ c, icon, title, body }: { c: Palette; icon: keyof typeof Ionicons.glyphMap; title: string; body: string }) { return <Card c={c}><Ionicons name={icon} size={25} color={c.primary}/><Text style={[s.cardTitle, { color: c.text }]}>{title}</Text><Text style={[s.body, { color: c.muted }]}>{body}</Text></Card>; }
++const s = StyleSheet.create({ root: { flex: 1 }, header: { paddingTop: 58, paddingHorizontal: 20, paddingBottom: 12, flexDirection: '\''row'\'', alignItems: '\''center'\'', justifyContent: '\''space-between'\'' }, headerTitle: { fontWeight: '\''800'\'', fontSize: 17 }, content: { padding: 20, paddingBottom: 50, gap: 14 }, title: { fontSize: 31, fontWeight: '\''900'\'', letterSpacing: -1 }, intro: { fontSize: 15, lineHeight: 23, marginBottom: 10 }, cardTitle: { fontSize: 17, fontWeight: '\''800'\'', marginTop: 12, marginBottom: 6 }, body: { fontSize: 13, lineHeight: 20 } });
+diff --git a/src/screens/SettingsScreen.tsx b/src/screens/SettingsScreen.tsx
+new file mode 100644
+index 0000000000000000000000000000000000000000..1d482dbf3f592e8bd0f6c777a37de5ab194dc398
+--- /dev/null
++++ b/src/screens/SettingsScreen.tsx
+@@ -0,0 +1,4 @@
++import React from'\''react'\'';import{Pressable,ScrollView,StyleSheet,Switch,Text,View}from'\''react-native'\'';import{Ionicons}from'\''@expo/vector-icons'\'';import{useApp}from'\''../context/AppContext'\'';import{Palette}from'\''../theme'\'';import{ThemePreference,Units}from'\''../types'\'';import{Card}from'\''../components/UI'\'';
++export function SettingsScreen({c,onAccount,onPrivacy}:{c:Palette;onAccount():void;onPrivacy():void}){const{state,updateSettings,storageError}=useApp();return <ScrollView contentContainerStyle={s.content}><Text style={[s.title,{color:c.text}]}>Settings</Text><Text style={[s.subtitle,{color:c.muted}]}>Make Stride yours.</Text>{storageError?<Card c={c}><Text style={{color:c.danger,fontWeight:'\''700'\''}}>Changes could not be saved. Check available device storage.</Text></Card>:null}<Section title="DAILY GOAL" c={c}><Card c={c} style={s.goalCard}><Pressable accessibilityLabel="Decrease daily goal" onPress={()=>updateSettings({stepGoal:Math.max(1000,state.settings.stepGoal-500)})} style={[s.adjust,{backgroundColor:c.surface2}]}><Ionicons name="remove" size={23} color={c.text}/></Pressable><View style={s.goalMid}><Text style={[s.goalNum,{color:c.text}]}>{state.settings.stepGoal.toLocaleString()}</Text><Text style={[s.goalLabel,{color:c.muted}]}>steps per day</Text></View><Pressable accessibilityLabel="Increase daily goal" onPress={()=>updateSettings({stepGoal:Math.min(50000,state.settings.stepGoal+500)})} style={[s.adjust,{backgroundColor:c.primary}]}><Ionicons name="add" size={23} color={c.primaryText}/></Pressable></Card></Section><Section title="PREFERENCES" c={c}><Card c={c} style={s.group}><Choice label="Units" values={[['\''metric'\'','\''Kilometers'\''],['\''imperial'\'','\''Miles'\'']]} value={state.settings.units} onChange={v=>updateSettings({units:v as Units})} c={c}/><Divider c={c}/><Choice label="Appearance" values={[['\''system'\'','\''System'\''],['\''light'\'','\''Light'\''],['\''dark'\'','\''Dark'\'']]} value={state.settings.theme} onChange={v=>updateSettings({theme:v as ThemePreference})} c={c}/><Divider c={c}/><Toggle label="Haptic feedback" detail="Gentle feedback during a walk" value={state.settings.haptics} onChange={v=>updateSettings({haptics:v})} c={c}/><Divider c={c}/><Toggle label="Keep screen awake" detail="While recording a walk" value={state.settings.keepScreenAwake} onChange={v=>updateSettings({keepScreenAwake:v})} c={c}/><Divider c={c}/><Toggle label="Background recording" detail="Requests Always location when a walk begins" value={state.settings.backgroundTracking} onChange={v=>updateSettings({backgroundTracking:v})} c={c}/></Card></Section><Section title="ABOUT" c={c}><Card c={c} style={s.group}><Pressable onPress={onAccount}><Row label="Account & cloud sync" value="Optional" c={c}/></Pressable><Divider c={c}/><Pressable onPress={onPrivacy}><Row label="Privacy" value="Your data controls" c={c}/></Pressable><Divider c={c}/><Row label="Version" value="1.1.0" c={c}/></Card></Section><Text style={[s.footer,{color:c.muted}]}>Designed for healthier days, one step at a time.</Text></ScrollView>}
++function Section({title,c,children}:{title:string;c:Palette;children:React.ReactNode}){return <View style={s.section}><Text style={[s.sectionTitle,{color:c.muted}]}>{title}</Text>{children}</View>}function Divider({c}:{c:Palette}){return <View style={[s.divider,{backgroundColor:c.line}]}/>}function Toggle({label,detail,value,onChange,c}:{label:string;detail:string;value:boolean;onChange(v:boolean):void;c:Palette}){return <View style={s.row}><View><Text style={[s.rowLabel,{color:c.text}]}>{label}</Text><Text style={[s.rowDetail,{color:c.muted}]}>{detail}</Text></View><Switch value={value} onValueChange={onChange} trackColor={{false:c.surface2,true:c.primary}} thumbColor="#fff"/></View>}function Row({label,value,c}:{label:string;value:string;c:Palette}){return <View style={s.row}><Text style={[s.rowLabel,{color:c.text}]}>{label}</Text><Text style={[s.rowDetail,{color:c.muted}]}>{value}</Text></View>}function Choice({label,values,value,onChange,c}:{label:string;values:string[][];value:string;onChange(v:string):void;c:Palette}){return <View style={{paddingVertical:14}}><Text style={[s.rowLabel,{color:c.text,marginBottom:12}]}>{label}</Text><View style={s.choices}>{values.map(([key,text])=><Pressable key={key} onPress={()=>onChange(key!)} style={[s.choice,{backgroundColor:value===key?c.primary:c.surface2}]}><Text style={{color:value===key?c.primaryText:c.muted,fontWeight:'\''700'\'',fontSize:12}}>{text}</Text></Pressable>)}</View></View>}
++const s=StyleSheet.create({content:{padding:20,paddingBottom:125},title:{fontSize:32,fontWeight:'\''800'\'',letterSpacing:-1,marginTop:8},subtitle:{fontSize:15,marginTop:4,marginBottom:25},section:{marginBottom:25},sectionTitle:{fontSize:11,fontWeight:'\''800'\'',letterSpacing:1.3,marginLeft:5,marginBottom:10},goalCard:{flexDirection:'\''row'\'',alignItems:'\''center'\'',justifyContent:'\''space-between'\''},adjust:{width:48,height:48,borderRadius:17,alignItems:'\''center'\'',justifyContent:'\''center'\''},goalMid:{alignItems:'\''center'\''},goalNum:{fontSize:27,fontWeight:'\''800'\''},goalLabel:{fontSize:11,marginTop:3},group:{paddingVertical:0},row:{minHeight:65,flexDirection:'\''row'\'',alignItems:'\''center'\'',justifyContent:'\''space-between'\''},rowLabel:{fontSize:15,fontWeight:'\''700'\''},rowDetail:{fontSize:12,marginTop:3},divider:{height:1},choices:{flexDirection:'\''row'\'',gap:7},choice:{flex:1,alignItems:'\''center'\'',paddingVertical:10,borderRadius:11},footer:{textAlign:'\''center'\'',fontSize:12,marginTop:5}});
+diff --git a/src/screens/WalkScreen.tsx b/src/screens/WalkScreen.tsx
+new file mode 100644
+index 0000000000000000000000000000000000000000..15c736661f55aea905e3b543e7b74b4f88490a7d
+--- /dev/null
++++ b/src/screens/WalkScreen.tsx
+@@ -0,0 +1,59 @@
++import React, { useEffect, useMemo, useRef, useState } from '\''react'\'';
++import { Alert, Linking, Pressable, StyleSheet, Text, View } from '\''react-native'\'';
++import MapView, { Marker, Polyline } from '\''react-native-maps'\'';
++import * as Location from '\''expo-location'\'';
++import * as Haptics from '\''expo-haptics'\'';
++import { activateKeepAwakeAsync, deactivateKeepAwake } from '\''expo-keep-awake'\'';
++import { Ionicons } from '\''@expo/vector-icons'\'';
++import { LinearGradient } from '\''expo-linear-gradient'\'';
++import { Palette, tokens } from '\''../theme'\'';
++import { ActiveWalk, Coordinate, WalkSession } from '\''../types'\'';
++import { formatDistance, formatDuration, pace, routeDistance } from '\''../utils/calculations'\'';
++import { clearActiveWalk, loadActiveWalk, saveActiveWalk } from '\''../data/storage'\'';
++import { appendFilteredPoints, getRealCurrentPosition, startBackgroundTracking, stopBackgroundTracking, toCoordinate } from '\''../services/walkTracking'\'';
++import { PrimaryButton } from '\''../components/UI'\'';
++
++type Phase = '\''intro'\'' | '\''requesting'\'' | '\''acquiring'\'' | '\''active'\'' | '\''paused'\'' | '\''summary'\'' | '\''error'\'';
++const elapsedFor = (walk: ActiveWalk, now = Date.now()) => walk.activeSeconds + (walk.status === '\''active'\'' && walk.lastResumedAt ? Math.max(0, Math.floor((now - walk.lastResumedAt) / 1000)) : 0);
++export function WalkScreen({ c, units, backgroundTracking, haptics, keepAwake, onClose, onSave }: { c: Palette; units: '\''metric'\''|'\''imperial'\''; backgroundTracking: boolean; haptics: boolean; keepAwake: boolean; onClose(): void; onSave(w: WalkSession): void }) {
++  const [phase, setPhase] = useState<Phase>('\''intro'\''); const [walk, setWalk] = useState<ActiveWalk | null>(null); const [elapsed, setElapsed] = useState(0); const [error, setError] = useState('\'''\'');
++  const watcher = useRef<Location.LocationSubscription | null>(null); const walkRef = useRef<ActiveWalk | null>(null); const mapRef = useRef<MapView>(null);
++  const distance = useMemo(() => routeDistance(walk?.route ?? []), [walk?.route]);
++  const currentPace = useMemo(() => { const route = walk?.route ?? []; if (route.length < 2) return '\''—'\''; const tail = route.slice(-4); return pace(routeDistance(tail), Math.max(1, (tail.at(-1)!.timestamp - tail[0]!.timestamp) / 1000), units); }, [walk?.route, units]);
++  const signalLost = phase === '\''active'\'' && Boolean(walk?.lastSignalAt && Date.now() - walk.lastSignalAt > 15000);
++  const commit = async (next: ActiveWalk) => { walkRef.current = next; setWalk(next); setElapsed(elapsedFor(next)); await saveActiveWalk(next); };
++
++  useEffect(() => { loadActiveWalk().then(saved => { if (saved) { walkRef.current = saved; setWalk(saved); setElapsed(elapsedFor(saved)); setPhase(saved.status); } }); return () => { watcher.current?.remove(); }; }, []);
++  useEffect(() => { if (phase !== '\''active'\'') return; const timer = setInterval(() => setElapsed(walkRef.current ? elapsedFor(walkRef.current) : 0), 1000); const poll = setInterval(async () => { const disk = await loadActiveWalk(); if (disk && disk.route.length > (walkRef.current?.route.length ?? 0)) { walkRef.current = disk; setWalk(disk); } }, 4000); return () => { clearInterval(timer); clearInterval(poll); }; }, [phase]);
++  useEffect(() => { if (keepAwake && phase === '\''active'\'') activateKeepAwakeAsync('\''walk'\'').catch(() => undefined); else deactivateKeepAwake('\''walk'\''); return () => deactivateKeepAwake('\''walk'\''); }, [keepAwake, phase]);
++  useEffect(() => { if (walk?.route.length) { const p = walk.route.at(-1)!; mapRef.current?.animateCamera({ center: p }, { duration: 500 }); } }, [walk?.route.length]);
++
++  const startForegroundWatcher = async () => { watcher.current?.remove(); watcher.current = await Location.watchPositionAsync({ accuracy: Location.Accuracy.BestForNavigation, distanceInterval: 5, timeInterval: 2500 }, async location => { const current = walkRef.current; if (!current || current.status !== '\''active'\'') return; await commit(appendFilteredPoints(current, [toCoordinate(location)])); }); };
++  const begin = async () => {
++    setPhase('\''requesting'\''); setError('\'''\'');
++    try {
++      const permission = await Location.requestForegroundPermissionsAsync();
++      if (!permission.granted) { setError('\''Location permission is required to measure and map a real walk. Enable “While Using the App” in system settings.'\''); return setPhase('\''error'\''); }
++      setPhase('\''acquiring'\''); const first = await getRealCurrentPosition(); const now = Date.now();
++      const next: ActiveWalk = { id: `walk-${now}`, startedAt: new Date(now).toISOString(), status: '\''active'\'', activeSeconds: 0, lastResumedAt: now, route: [first], lastSignalAt: first.timestamp };
++      await commit(next); await startForegroundWatcher();
++      if (backgroundTracking) {
++        const bg = await Location.requestBackgroundPermissionsAsync();
++        if (bg.granted) await startBackgroundTracking(); else Alert.alert('\''Background access not enabled'\'', '\''The walk will record only while Stride remains open. You can enable “Always” location later in Settings.'\'');
++      }
++      if (haptics) await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); setPhase('\''active'\'');
++    } catch (cause) { const code = cause instanceof Error ? cause.message : '\'''\''; setError(code === '\''LOCATION_SERVICES_DISABLED'\'' ? '\''Location Services are turned off. Turn them on, then try again.'\'' : code === '\''LOCATION_SIGNAL_WEAK'\'' ? '\''Stride could not get an accurate GPS position. Move outdoors with a clear view of the sky and retry.'\'' : '\''GPS is temporarily unavailable. Check Location Services and try again.'\''); setPhase('\''error'\''); }
++  };
++  const pause = async () => { const current = walkRef.current; if (!current) return; watcher.current?.remove(); watcher.current = null; await stopBackgroundTracking(); const next = { ...current, status: '\''paused'\'' as const, activeSeconds: elapsedFor(current), lastResumedAt: null }; await commit(next); if (haptics) await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setPhase('\''paused'\''); };
++  const resume = async () => { const current = walkRef.current; if (!current) return; if (!await Location.hasServicesEnabledAsync()) { setError('\''Location Services are off. Turn them on before resuming.'\''); return setPhase('\''error'\''); } const next = { ...current, status: '\''active'\'' as const, lastResumedAt: Date.now() }; await commit(next); await startForegroundWatcher(); if (backgroundTracking && (await Location.getBackgroundPermissionsAsync()).granted) await startBackgroundTracking(); setPhase('\''active'\''); };
++  const finish = async () => { if (phase === '\''active'\'') await pause(); setPhase('\''summary'\''); };
++  const discard = () => Alert.alert('\''Discard this walk?'\'', '\''The recorded route and stats will be permanently removed.'\'', [{ text: '\''Keep walk'\'', style: '\''cancel'\'' }, { text: '\''Discard'\'', style: '\''destructive'\'', onPress: async () => { watcher.current?.remove(); await stopBackgroundTracking(); await clearActiveWalk(); onClose(); } }]);
++  const save = async () => { const current = walkRef.current; if (!current) return; const duration = elapsedFor(current); onSave({ id: current.id, startedAt: current.startedAt, endedAt: new Date().toISOString(), durationSeconds: duration, distanceMeters: routeDistance(current.route), steps: Math.round(routeDistance(current.route) / .762), route: current.route }); await clearActiveWalk(); if (haptics) await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); };
++
++  if (phase === '\''intro'\'' || phase === '\''requesting'\'' || phase === '\''acquiring'\'' || phase === '\''error'\'') return <View style={[s.center, { backgroundColor: c.bg }]}><Pressable onPress={onClose} style={s.close}><Ionicons name="close" size={26} color={c.text}/></Pressable><LinearGradient colors={[c.surface2, c.surface]} style={s.readyOrb}><Ionicons name={phase === '\''error'\'' ? '\''location-outline'\'' : '\''navigate'\''} size={52} color={phase === '\''error'\'' ? c.danger : c.primary}/></LinearGradient><Text style={[s.readyTitle, { color: c.text }]}>{phase === '\''error'\'' ? '\''Location unavailable'\'' : phase === '\''acquiring'\'' ? '\''Finding your GPS signal…'\'' : phase === '\''requesting'\'' ? '\''Waiting for permission…'\'' : '\''Record a real walk.'\''}</Text><Text style={[s.readyBody, { color: c.muted }]}>{phase === '\''error'\'' ? error : '\''Stride uses your device location only when you record a walk. Your live route is stored locally first and is never fabricated.'\''}</Text><View style={s.action}>{phase === '\''error'\'' ? <><PrimaryButton c={c} title="Try Again" icon="refresh" onPress={begin}/><Pressable onPress={() => Linking.openSettings()}><Text style={[s.cancel, { color: c.muted }]}>Open system settings</Text></Pressable></> : <PrimaryButton c={c} disabled={phase !== '\''intro'\''} title={phase === '\''intro'\'' ? '\''Begin Walk'\'' : '\''Please wait…'\''} icon="play" onPress={begin}/>}</View></View>;
++  if (phase === '\''summary'\'') return <View style={[s.center, { backgroundColor: c.bg }]}><LinearGradient colors={[c.primary, c.primary2]} style={s.complete}><Ionicons name="checkmark" size={38} color={c.primaryText}/></LinearGradient><Text style={[s.readyTitle, { color: c.text }]}>Walk complete</Text><Text style={[s.readyBody, { color: c.muted }]}>Your route is safely stored on this device and will sync after you save.</Text><View style={[s.summaryCard, { backgroundColor: c.surface, borderColor: c.line }]}><BigStat label="DISTANCE" value={formatDistance(distance, units)} c={c}/><BigStat label="TIME" value={formatDuration(elapsed)} c={c}/><BigStat label="AVG. PACE" value={pace(distance, elapsed, units)} c={c}/></View><View style={s.action}><PrimaryButton c={c} title="Save Walk" icon="checkmark" onPress={save}/><Pressable onPress={discard}><Text style={[s.cancel, { color: c.muted }]}>Discard</Text></Pressable></View></View>;
++  const route = walk?.route ?? [], initial = route.at(-1);
++  return <View style={[s.live, { backgroundColor: c.map }]}>{initial ? <MapView ref={mapRef} style={StyleSheet.absoluteFill} initialRegion={{ ...initial, latitudeDelta: .012, longitudeDelta: .012 }} userInterfaceStyle={c.bg === '\''#07100C'\'' ? '\''dark'\'' : '\''light'\''} showsUserLocation showsMyLocationButton={false}><Polyline coordinates={route} strokeColor={c.primary} strokeWidth={6}/><Marker coordinate={initial}><LinearGradient colors={[c.primary, c.primary2]} style={s.marker}><View style={s.markerCore}/></LinearGradient></Marker></MapView> : null}<LinearGradient colors={[c.surface, c.surface2]} style={s.livePill}><View style={[s.dot, { backgroundColor: phase === '\''paused'\'' ? c.warning : signalLost ? c.danger : c.primary }]}/><Text style={{ color: c.text, fontWeight: '\''800'\'' }}>{phase === '\''paused'\'' ? '\''PAUSED'\'' : signalLost ? '\''GPS SIGNAL LOST'\'' : '\''RECORDING'\''}</Text></LinearGradient><LinearGradient colors={[c.surface, c.surface2]} style={[s.liveCard, { borderColor: c.line }]}><Text style={[s.timer, { color: c.text }]}>{formatDuration(elapsed)}</Text><Text style={[s.elapsed, { color: c.muted }]}>ACTIVE TIME</Text>{signalLost ? <Text style={[s.signal, { color: c.danger }]}>Keep walking outdoors—Stride will reconnect automatically.</Text> : null}<View style={s.liveStats}><BigStat label="DISTANCE" value={formatDistance(distance, units)} c={c}/><BigStat label="CURRENT PACE" value={currentPace} c={c}/><BigStat label="AVG. PACE" value={pace(distance, elapsed, units)} c={c}/></View><View style={s.controls}><Pressable accessibilityLabel={phase === '\''paused'\'' ? '\''Resume walk'\'' : '\''Pause walk'\''} onPress={phase === '\''paused'\'' ? resume : pause} style={[s.round, { backgroundColor: c.elevated }]}><Ionicons name={phase === '\''paused'\'' ? '\''play'\'' : '\''pause'\''} size={26} color={c.text}/></Pressable><Pressable accessibilityLabel="Finish walk" onPress={() => Alert.alert('\''Finish walk?'\'', '\''Your current route will be ready to save.'\'', [{ text: '\''Keep walking'\'', style: '\''cancel'\'' }, { text: '\''Finish'\'', onPress: finish }])} style={s.round}><LinearGradient colors={[c.danger, '\''#C94058'\'']} style={s.round}><Ionicons name="stop" size={25} color="white"/></LinearGradient></Pressable></View></LinearGradient></View>;
++}
++function BigStat({ label, value, c }: { label: string; value: string; c: Palette }) { return <View style={s.bigStat}><Text numberOfLines={1} adjustsFontSizeToFit style={[s.bigValue, { color: c.text }]}>{value}</Text><Text style={[s.statLabel, { color: c.muted }]}>{label}</Text></View>; }
++const s = StyleSheet.create({ center: { flex: 1, alignItems: '\''center'\'', justifyContent: '\''center'\'', padding: 24 }, close: { position: '\''absolute'\'', top: 60, right: 24, zIndex: 2 }, readyOrb: { width: 112, height: 112, borderRadius: 40, alignItems: '\''center'\'', justifyContent: '\''center'\'' }, readyTitle: { fontSize: 29, fontWeight: '\''800'\'', letterSpacing: -.7, textAlign: '\''center'\'', marginTop: 24 }, readyBody: { fontSize: 15, lineHeight: 23, textAlign: '\''center'\'', maxWidth: 340, marginTop: 10 }, action: { position: '\''absolute'\'', bottom: 46, left: 24, right: 24, gap: 18 }, cancel: { fontSize: 15, fontWeight: '\''700'\'', textAlign: '\''center'\'' }, complete: { width: 76, height: 76, borderRadius: 30, alignItems: '\''center'\'', justifyContent: '\''center'\'' }, summaryCard: { width: '\''100%'\'', borderRadius: 26, borderWidth: 1, padding: 22, marginTop: 35, gap: 24 }, bigStat: { flex: 1, alignItems: '\''center'\'', minWidth: 0 }, bigValue: { fontSize: 19, fontWeight: '\''800'\'' }, statLabel: { fontSize: 9, fontWeight: '\''800'\'', letterSpacing: .8, marginTop: 6 }, live: { flex: 1 }, livePill: { position: '\''absolute'\'', top: 58, alignSelf: '\''center'\'', paddingHorizontal: 17, height: 38, borderRadius: 19, flexDirection: '\''row'\'', alignItems: '\''center'\'', gap: 8 }, dot: { width: 7, height: 7, borderRadius: 4 }, liveCard: { position: '\''absolute'\'', left: 14, right: 14, bottom: 24, borderRadius: tokens.radius.xl, borderWidth: 1, padding: 22, alignItems: '\''center'\'' }, timer: { fontSize: 42, fontWeight: '\''700'\'', fontVariant: ['\''tabular-nums'\''] }, elapsed: { fontSize: 10, fontWeight: '\''800'\'', letterSpacing: 1, marginTop: 2 }, signal: { fontSize: 11, marginTop: 8, textAlign: '\''center'\'' }, liveStats: { flexDirection: '\''row'\'', width: '\''100%'\'', marginVertical: 22 }, controls: { flexDirection: '\''row'\'', gap: 20 }, round: { width: 60, height: 60, borderRadius: 30, alignItems: '\''center'\'', justifyContent: '\''center'\'' }, marker: { width: 28, height: 28, borderRadius: 14, padding: 5 }, markerCore: { flex: 1, borderRadius: 10, backgroundColor: '\''white'\'' } });
+diff --git a/src/services/supabase.ts b/src/services/supabase.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..7d6a892fd0b4e9a420d16af19dc6c8a9f3a9386d
+--- /dev/null
++++ b/src/services/supabase.ts
+@@ -0,0 +1,12 @@
++import AsyncStorage from '\''@react-native-async-storage/async-storage'\'';
++import { createClient } from '\''@supabase/supabase-js'\'';
++
++const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
++const key = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
++export const isCloudConfigured = Boolean(url && key);
++
++export const supabase = isCloudConfigured
++  ? createClient(url!, key!, {
++      auth: { storage: AsyncStorage, autoRefreshToken: true, persistSession: true, detectSessionInUrl: false },
++    })
++  : null;
+diff --git a/src/services/sync.ts b/src/services/sync.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..7038494c4b8b5f97bf0dd10a40d7442de222fd71
+--- /dev/null
++++ b/src/services/sync.ts
+@@ -0,0 +1,41 @@
++import { PersistedState, WalkSession } from '\''../types'\'';
++import { supabase } from '\''./supabase'\'';
++
++export type SyncResult = { syncedWalkIds: string[]; activityDates: string[]; error?: string };
++export type CloudSnapshot = { walks: WalkSession[]; activity: PersistedState['\''activity'\'']; settings?: Partial<PersistedState['\''settings'\'']> };
++export async function fetchCloudSnapshot(userId: string): Promise<CloudSnapshot> {
++  if (!supabase) return { walks: [], activity: {} };
++  const [walkResult, activityResult, preferenceResult] = await Promise.all([
++    supabase.from('\''walk_sessions'\'').select('\''*'\'').eq('\''user_id'\'', userId),
++    supabase.from('\''daily_activity'\'').select('\''*'\'').eq('\''user_id'\'', userId),
++    supabase.from('\''user_preferences'\'').select('\''*'\'').eq('\''user_id'\'', userId).maybeSingle(),
++  ]);
++  const error = walkResult.error ?? activityResult.error ?? preferenceResult.error; if (error) throw error;
++  const walks: WalkSession[] = (walkResult.data ?? []).map((row: Record<string, unknown>) => ({ id: String(row.id), startedAt: String(row.started_at), endedAt: String(row.ended_at), durationSeconds: Number(row.duration_seconds), distanceMeters: Number(row.distance_meters), steps: Number(row.steps), route: (Array.isArray(row.route) ? row.route : []) as WalkSession['\''route'\''], updatedAt: String(row.updated_at), syncStatus: '\''synced'\'' }));
++  const activity = Object.fromEntries((activityResult.data ?? []).map((row: Record<string, unknown>) => [String(row.activity_date), { date: String(row.activity_date), steps: Number(row.steps), distanceMeters: Number(row.distance_meters), activeMinutes: Number(row.active_minutes), calories: Number(row.calories), updatedAt: String(row.updated_at), syncStatus: '\''synced'\'' as const }]));
++  const p = preferenceResult.data; return { walks, activity, settings: p ? { stepGoal: p.step_goal, units: p.units, theme: p.theme } : undefined };
++}
++
++export function mergeCloudSnapshot(local: PersistedState, cloud: CloudSnapshot): PersistedState {
++  const walks = new Map(local.walks.map(w => [w.id, w]));
++  for (const remote of cloud.walks) { const current = walks.get(remote.id); if (!current || (remote.updatedAt ?? '\'''\'') > (current.updatedAt ?? '\'''\'')) walks.set(remote.id, remote); }
++  const activity = { ...cloud.activity, ...local.activity };
++  for (const [date, remote] of Object.entries(cloud.activity)) { const current = local.activity[date]; if (!current || (remote.updatedAt ?? '\'''\'') > (current.updatedAt ?? '\'''\'')) activity[date] = remote; }
++  return { ...local, settings: { ...local.settings, ...cloud.settings }, walks: [...walks.values()].sort((a, b) => b.startedAt.localeCompare(a.startedAt)), activity };
++}
++export async function syncLocalState(state: PersistedState, userId: string): Promise<SyncResult> {
++  if (!supabase) return { syncedWalkIds: [], activityDates: [], error: '\''Cloud sync is not configured.'\'' };
++  const pendingWalks = state.walks.filter(w => w.syncStatus !== '\''synced'\'');
++  const walkRows = pendingWalks.map(w => ({ id: w.id, user_id: userId, started_at: w.startedAt, ended_at: w.endedAt, duration_seconds: w.durationSeconds, distance_meters: w.distanceMeters, steps: w.steps, route: w.route, updated_at: w.updatedAt ?? w.endedAt }));
++  if (walkRows.length) { const { error } = await supabase.from('\''walk_sessions'\'').upsert(walkRows, { onConflict: '\''id'\'' }); if (error) return { syncedWalkIds: [], activityDates: [], error: error.message }; }
++  const activityRows = Object.values(state.activity).filter(a => a.syncStatus !== '\''synced'\'').map(a => ({ user_id: userId, activity_date: a.date, steps: a.steps, distance_meters: a.distanceMeters, active_minutes: a.activeMinutes, calories: a.calories, updated_at: a.updatedAt ?? new Date().toISOString() }));
++  if (activityRows.length) { const { error } = await supabase.from('\''daily_activity'\'').upsert(activityRows, { onConflict: '\''user_id,activity_date'\'' }); if (error) return { syncedWalkIds: pendingWalks.map(w => w.id), activityDates: [], error: error.message }; }
++  const { error: preferenceError } = await supabase.from('\''user_preferences'\'').upsert({ user_id: userId, step_goal: state.settings.stepGoal, units: state.settings.units, theme: state.settings.theme, updated_at: new Date().toISOString() });
++  return { syncedWalkIds: pendingWalks.map(w => w.id), activityDates: activityRows.map(a => a.activity_date), error: preferenceError?.message };
++}
++
++export function markSynced(state: PersistedState, result: SyncResult): PersistedState {
++  const ids = new Set(result.syncedWalkIds);
++  const dates = new Set(result.activityDates);
++  return { ...state, walks: state.walks.map(w => ids.has(w.id) ? { ...w, syncStatus: '\''synced'\'' } as WalkSession : w), activity: Object.fromEntries(Object.entries(state.activity).map(([key, value]) => [key, dates.has(key) ? { ...value, syncStatus: '\''synced'\'' } : value])) };
++}
+diff --git a/src/services/walkTracking.ts b/src/services/walkTracking.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..d9aea30b0906dafa5f1964a9a2b6fa9667b9cf6e
+--- /dev/null
++++ b/src/services/walkTracking.ts
+@@ -0,0 +1,76 @@
++import * as Location from '\''expo-location'\'';
++import * as TaskManager from '\''expo-task-manager'\'';
++import { ACTIVE_WALK_KEY, loadActiveWalk, saveActiveWalk } from '\''../data/storage'\'';
++import { ActiveWalk, Coordinate } from '\''../types'\'';
++import { haversineMeters } from '\''../utils/calculations'\'';
++
++export const WALK_LOCATION_TASK = '\''stride-background-walk-location'\'';
++export const MAX_ACCURACY_METERS = 50;
++export const MAX_REASONABLE_SPEED_MPS = 8;
++
++export function isPlausiblePoint(previous: Coordinate | undefined, next: Coordinate): boolean {
++  if (!Number.isFinite(next.latitude) || !Number.isFinite(next.longitude)) return false;
++  if ((next.accuracy ?? 999) > MAX_ACCURACY_METERS) return false;
++  if (!previous) return true;
++  const elapsed = (next.timestamp - previous.timestamp) / 1000;
++  if (elapsed <= 0) return false;
++  const reportedSpeed = next.speed ?? 0;
++  return haversineMeters(previous, next) / elapsed <= MAX_REASONABLE_SPEED_MPS && reportedSpeed <= MAX_REASONABLE_SPEED_MPS;
++}
++
++export function appendFilteredPoints(walk: ActiveWalk, incoming: Coordinate[]): ActiveWalk {
++  const route = [...walk.route];
++  for (const point of incoming.sort((a, b) => a.timestamp - b.timestamp)) {
++    if (isPlausiblePoint(route.at(-1), point)) route.push(point);
++  }
++  return { ...walk, route, lastSignalAt: route.at(-1)?.timestamp ?? walk.lastSignalAt };
++}
++
++if (!TaskManager.isTaskDefined(WALK_LOCATION_TASK)) {
++  TaskManager.defineTask(WALK_LOCATION_TASK, async ({ data, error }) => {
++    if (error || !data) return;
++    const active = await loadActiveWalk();
++    if (!active || active.status !== '\''active'\'') return;
++    const locations = (data as { locations: Location.LocationObject[] }).locations;
++    const points = locations.map(toCoordinate);
++    await saveActiveWalk(appendFilteredPoints(active, points));
++  });
++}
++
++export const toCoordinate = (location: Location.LocationObject): Coordinate => ({
++  latitude: location.coords.latitude,
++  longitude: location.coords.longitude,
++  accuracy: location.coords.accuracy,
++  speed: location.coords.speed,
++  timestamp: location.timestamp,
++});
++
++export async function getRealCurrentPosition(): Promise<Coordinate> {
++  const enabled = await Location.hasServicesEnabledAsync();
++  if (!enabled) throw new Error('\''LOCATION_SERVICES_DISABLED'\'');
++  const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
++  const point = toCoordinate(location);
++  if ((point.accuracy ?? 999) > 100) throw new Error('\''LOCATION_SIGNAL_WEAK'\'');
++  return point;
++}
++
++export async function startBackgroundTracking(): Promise<void> {
++  if (await Location.hasStartedLocationUpdatesAsync(WALK_LOCATION_TASK)) return;
++  await Location.startLocationUpdatesAsync(WALK_LOCATION_TASK, {
++    accuracy: Location.Accuracy.BestForNavigation,
++    distanceInterval: 5,
++    timeInterval: 3000,
++    pausesUpdatesAutomatically: false,
++    activityType: Location.ActivityType.Fitness,
++    showsBackgroundLocationIndicator: true,
++    foregroundService: {
++      notificationTitle: '\''Stride is recording your walk'\'',
++      notificationBody: '\''Tap to return to your live route.'\'',
++      notificationColor: '\''#9DEB72'\'',
++    },
++  });
++}
++
++export async function stopBackgroundTracking(): Promise<void> {
++  if (await Location.hasStartedLocationUpdatesAsync(WALK_LOCATION_TASK)) await Location.stopLocationUpdatesAsync(WALK_LOCATION_TASK);
++}
+diff --git a/src/theme.ts b/src/theme.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..8e5659e6d94a7894ccc588a83867a53ad2cf91b6
+--- /dev/null
++++ b/src/theme.ts
+@@ -0,0 +1,19 @@
++import { ColorSchemeName } from '\''react-native'\'';
++import { ThemePreference } from '\''./types'\'';
++
++export const tokens = {
++  spacing: { xs: 6, sm: 10, md: 16, lg: 20, xl: 28, xxl: 36 },
++  radius: { sm: 12, md: 18, lg: 24, xl: 32, pill: 999 },
++  type: { display: 40, title: 30, heading: 20, body: 15, caption: 12 },
++};
++export const colors = {
++  dark: { bg: '\''#07100C'\'', surface: '\''#0E1A14'\'', surface2: '\''#17271E'\'', elevated: '\''#1B2E23'\'', text: '\''#F3FAF5'\'', muted: '\''#91A99B'\'', primary: '\''#A7EE78'\'', primary2: '\''#5BD5AD'\'', primaryText: '\''#0B1A10'\'', line: '\''#263A2E'\'', danger: '\''#FF7E78'\'', warning: '\''#F2C66D'\'', map: '\''#101D17'\'', shadow: '\''#000000'\'' },
++  light: { bg: '\''#F2F6F1'\'', surface: '\''#FFFFFF'\'', surface2: '\''#E8F0E9'\'', elevated: '\''#FFFFFF'\'', text: '\''#122019'\'', muted: '\''#66796D'\'', primary: '\''#5DAF35'\'', primary2: '\''#21A987'\'', primaryText: '\''#FFFFFF'\'', line: '\''#D9E5DA'\'', danger: '\''#D9514D'\'', warning: '\''#AE7719'\'', map: '\''#E4ECE5'\'', shadow: '\''#193D29'\'' },
++};
++export type Palette = typeof colors.dark;
++export const gradients = {
++  dark: { hero: ['\''#183524'\'', '\''#0E1A14'\''] as const, primary: ['\''#B8F57E'\'', '\''#58D3A9'\''] as const, ambient: ['\''#214833'\'', '\''#07100C'\''] as const, danger: ['\''#FF8C7D'\'', '\''#E65062'\''] as const },
++  light: { hero: ['\''#FFFFFF'\'', '\''#E6F3E8'\''] as const, primary: ['\''#77C947'\'', '\''#25AE89'\''] as const, ambient: ['\''#D9F0DB'\'', '\''#F2F6F1'\''] as const, danger: ['\''#EE7469'\'', '\''#CD414E'\''] as const },
++};
++export type ThemeMode = keyof typeof colors;
++export const resolveTheme = (preference: ThemePreference, system: ColorSchemeName): ThemeMode => preference === '\''system'\'' ? (system === '\''dark'\'' ? '\''dark'\'' : '\''light'\'') : preference;
+diff --git a/src/types.ts b/src/types.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..ff0fbdbb16cc9bf892ff01c7bfa7bf1faedd1095
+--- /dev/null
++++ b/src/types.ts
+@@ -0,0 +1,8 @@
++export type Units = '\''metric'\'' | '\''imperial'\'';
++export type ThemePreference = '\''system'\'' | '\''light'\'' | '\''dark'\'';
++export type Coordinate = { latitude: number; longitude: number; timestamp: number; accuracy?: number | null; speed?: number | null };
++export type WalkSession = { id: string; startedAt: string; endedAt: string; durationSeconds: number; distanceMeters: number; steps: number; route: Coordinate[]; syncStatus?: '\''local'\'' | '\''syncing'\'' | '\''synced'\'' | '\''error'\''; updatedAt?: string };
++export type ActiveWalk = { id: string; startedAt: string; status: '\''active'\'' | '\''paused'\''; activeSeconds: number; lastResumedAt: number | null; route: Coordinate[]; lastSignalAt: number | null };
++export type DailyActivity = { date: string; steps: number; distanceMeters: number; activeMinutes: number; calories: number; updatedAt?: string; syncStatus?: '\''local'\'' | '\''synced'\'' | '\''error'\'' };
++export type Settings = { stepGoal: number; units: Units; theme: ThemePreference; haptics: boolean; keepScreenAwake: boolean; backgroundTracking: boolean };
++export type PersistedState = { onboarded: boolean; settings: Settings; walks: WalkSession[]; activity: Record<string, DailyActivity> };
+diff --git a/src/utils/calculations.ts b/src/utils/calculations.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..d6d6b8a226f7770e7652156abef9bb0f523189e4
+--- /dev/null
++++ b/src/utils/calculations.ts
+@@ -0,0 +1,14 @@
++import { Coordinate, DailyActivity } from '\''../types'\'';
++export const clamp=(n:number,min:number,max:number)=>Math.min(max,Math.max(min,n));
++export const caloriesFromSteps=(steps:number)=>Math.round(steps*0.04);
++export const distanceFromSteps=(steps:number,strideMeters=.762)=>steps*strideMeters;
++export const activeMinutesFromSteps=(steps:number)=>Math.round(steps/100);
++export const haversineMeters=(a:Coordinate,b:Coordinate)=>{const rad=(v:number)=>v*Math.PI/180;const R=6371000;const dLat=rad(b.latitude-a.latitude);const dLon=rad(b.longitude-a.longitude);const q=Math.sin(dLat/2)**2+Math.cos(rad(a.latitude))*Math.cos(rad(b.latitude))*Math.sin(dLon/2)**2;return 2*R*Math.atan2(Math.sqrt(q),Math.sqrt(1-q));};
++export const routeDistance=(points:Coordinate[])=>points.slice(1).reduce((sum,p,i)=>sum+haversineMeters(points[i]!,p),0);
++export const formatDuration=(seconds:number)=>`${String(Math.floor(seconds/3600)).padStart(2,'\''0'\'')}:${String(Math.floor(seconds%3600/60)).padStart(2,'\''0'\'')}:${String(seconds%60).padStart(2,'\''0'\'')}`;
++export const formatDistance=(meters:number,units:'\''metric'\''|'\''imperial'\'')=>units==='\''metric'\''?`${(meters/1000).toFixed(2)} km`:`${(meters/1609.344).toFixed(2)} mi`;
++export const pace=(meters:number,seconds:number,units:'\''metric'\''|'\''imperial'\'')=>{if(meters<10||seconds<=0)return'\''—'\'';const divisor=units==='\''metric'\''?1000:1609.344;const totalSeconds=Math.round(seconds/(meters/divisor));if(!Number.isFinite(totalSeconds)||totalSeconds>5999)return'\''—'\'';return `${Math.floor(totalSeconds/60)}:${String(totalSeconds%60).padStart(2,'\''0'\'')} /${units==='\''metric'\''?'\''km'\'':'\''mi'\''}`};
++export const dateKey=(d=new Date())=>{const y=d.getFullYear();const m=String(d.getMonth()+1).padStart(2,'\''0'\'');const day=String(d.getDate()).padStart(2,'\''0'\'');return `${y}-${m}-${day}`};
++export const calculateStreak=(activity:Record<string,DailyActivity>,goal:number,now=new Date())=>{let streak=0;const d=new Date(now);if((activity[dateKey(d)]?.steps??0)<goal)d.setDate(d.getDate()-1);while((activity[dateKey(d)]?.steps??0)>=goal){streak++;d.setDate(d.getDate()-1);}return streak;};
++export const lastSevenDays=(activity:Record<string,DailyActivity>,now=new Date())=>Array.from({length:7},(_,i)=>{const d=new Date(now);d.setDate(d.getDate()-(6-i));return{date:dateKey(d),label:d.toLocaleDateString(undefined,{weekday:'\''short'\''}).slice(0,1),steps:activity[dateKey(d)]?.steps??0};});
++export const aggregateWalk = (existing: DailyActivity | undefined, date: string, walk: { steps: number; distanceMeters: number; durationSeconds: number }): DailyActivity => ({ date, steps: Math.max(existing?.steps ?? 0, walk.steps), distanceMeters: Math.max(existing?.distanceMeters ?? 0, walk.distanceMeters), activeMinutes: (existing?.activeMinutes ?? 0) + Math.round(walk.durationSeconds / 60), calories: Math.max(existing?.calories ?? 0, caloriesFromSteps(walk.steps)), updatedAt: new Date().toISOString(), syncStatus: '\''local'\'' });
+diff --git a/supabase/migrations/202609220001_initial_schema.sql b/supabase/migrations/202609220001_initial_schema.sql
+new file mode 100644
+index 0000000000000000000000000000000000000000..205becb9e17354053c963364be5af7ecc6332812
+--- /dev/null
++++ b/supabase/migrations/202609220001_initial_schema.sql
+@@ -0,0 +1,63 @@
++-- Stride local-first sync schema. Run with `supabase db push`.
++create extension if not exists pgcrypto;
++
++create table public.profiles (
++  id uuid primary key references auth.users(id) on delete cascade,
++  display_name text check (char_length(display_name) <= 80),
++  created_at timestamptz not null default now(),
++  updated_at timestamptz not null default now()
++);
++create table public.walk_sessions (
++  id text primary key,
++  user_id uuid not null references auth.users(id) on delete cascade,
++  started_at timestamptz not null,
++  ended_at timestamptz not null,
++  duration_seconds integer not null check (duration_seconds >= 0),
++  distance_meters double precision not null check (distance_meters >= 0),
++  steps integer not null default 0 check (steps >= 0),
++  route jsonb not null default '\''[]'\''::jsonb,
++  created_at timestamptz not null default now(),
++  updated_at timestamptz not null default now(),
++  check (jsonb_typeof(route) = '\''array'\'')
++);
++create table public.daily_activity (
++  user_id uuid not null references auth.users(id) on delete cascade,
++  activity_date date not null,
++  steps integer not null default 0 check (steps >= 0),
++  distance_meters double precision not null default 0 check (distance_meters >= 0),
++  active_minutes integer not null default 0 check (active_minutes >= 0),
++  calories integer not null default 0 check (calories >= 0),
++  updated_at timestamptz not null default now(),
++  primary key (user_id, activity_date)
++);
++create table public.user_preferences (
++  user_id uuid primary key references auth.users(id) on delete cascade,
++  step_goal integer not null default 10000 check (step_goal between 1000 and 50000),
++  units text not null default '\''metric'\'' check (units in ('\''metric'\'','\''imperial'\'')),
++  theme text not null default '\''system'\'' check (theme in ('\''system'\'','\''light'\'','\''dark'\'')),
++  updated_at timestamptz not null default now()
++);
++create index walk_sessions_user_started_idx on public.walk_sessions(user_id, started_at desc);
++create index daily_activity_user_date_idx on public.daily_activity(user_id, activity_date desc);
++
++alter table public.profiles enable row level security;
++alter table public.walk_sessions enable row level security;
++alter table public.daily_activity enable row level security;
++alter table public.user_preferences enable row level security;
++
++create policy "owners manage profile" on public.profiles for all using (auth.uid() = id) with check (auth.uid() = id);
++create policy "owners manage walks" on public.walk_sessions for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
++create policy "owners manage activity" on public.daily_activity for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
++create policy "owners manage preferences" on public.user_preferences for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
++
++create or replace function public.handle_new_user() returns trigger language plpgsql security definer set search_path = public as $$
++begin insert into public.profiles(id) values (new.id); insert into public.user_preferences(user_id) values (new.id); return new; end;
++$$;
++create trigger on_auth_user_created after insert on auth.users for each row execute procedure public.handle_new_user();
++
++-- Deliberately callable only by the authenticated user. Cascades remove every user-owned row.
++create or replace function public.delete_own_account() returns void language plpgsql security definer set search_path = public as $$
++begin if auth.uid() is null then raise exception '\''Not authenticated'\''; end if; delete from auth.users where id = auth.uid(); end;
++$$;
++revoke all on function public.delete_own_account() from public;
++grant execute on function public.delete_own_account() to authenticated;
+diff --git a/tsconfig.json b/tsconfig.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..512dfec5d1c7958d7a195c4c834dbb2a12d11e6d
+--- /dev/null
++++ b/tsconfig.json
+@@ -0,0 +1,10 @@
++{
++  "extends": "expo/tsconfig.base",
++  "compilerOptions": {
++    "strict": true,
++    "noUncheckedIndexedAccess": true,
++    "types": ["jest", "node"],
++    "jsx": "react-jsx"
++  },
++  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"]
++}
+
