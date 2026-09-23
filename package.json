@@ -11,7 +11,9 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --ext .ts,.tsx",
     "test": "jest --runInBand",
-    "doctor": "npx expo-doctor"
+    "doctor": "npx expo-doctor",
+    "check:conflicts": "node scripts/check-conflicts.mjs",
+    "verify": "npm run check:conflicts && npm run typecheck && npm run lint && npm test && npm run doctor"
   },
   "dependencies": {
     "@expo/vector-icons": "^14.0.4",

@@ -27,7 +27,10 @@ cp .env.example .env
 npm run typecheck
 npm test
 npm run lint
+npm run check:conflicts
 ```
+
+Run `npm run verify` before opening a pull request to check for unresolved merge markers, then type-check, lint, test, and run Expo Doctor in sequence.
 
 ## Development builds (recommended)
 
